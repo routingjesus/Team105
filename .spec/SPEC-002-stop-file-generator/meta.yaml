@@ -1,0 +1,14 @@
+schema_version: "2026.04"
+status: draft
+created: 2026-07-27
+updated: 2026-07-27
+
+source: "https://app.notion.com/p/398c1b3dd256808f825ecc5d3eb11f01"
+tracking_id: "Team-105-Dataset-Creation-Wizard-PRD"
+
+depends_on:
+  - "SPEC-001"
+
+coordination:
+  blast_radius: isolated
+  parallel_safe: false
