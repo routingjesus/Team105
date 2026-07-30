@@ -1,0 +1,15 @@
+entries:
+  - type: decision_made
+    summary: "Paired endpoints deliver generated files: JSON+base64 generate plus raw download"
+    context: >
+      A single HTTP response can't natively carry both file bytes and
+      generation metadata, so SPEC-001 established the pattern:
+      POST /api/trucks/generate returns routing metadata with base64-encoded
+      file content; POST /api/trucks/download takes the same request body and
+      returns raw bytes with a Content-Disposition attachment header.
+      backend/schemas/truck_config.py is the canonical Pydantic contract that
+      SPEC-002 (stop generator) and SPEC-003 (wizard UI) mirror — extend it
+      rather than defining parallel models.
+    tags: [api-contract, fastapi, file-delivery]
+    date: 2026-07-30
+    source_spec: SPEC-001
