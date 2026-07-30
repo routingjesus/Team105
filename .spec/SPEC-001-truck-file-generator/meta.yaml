@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: in_progress
+status: done
 created: 2026-07-27
 updated: 2026-07-30
 
@@ -10,3 +10,42 @@ coordination:
   blast_radius: isolated
   parallel_safe: true
 ready_sha: "421e5a2f7c0eb95719ebb7832856dd399ea4795d"
+
+completion:
+  date: 2026-07-30
+  pull_requests: []
+  acceptance_criteria_waived:
+    - criterion: "AC7 — generated file loads in DirectRoute 26.x without blocking schema errors"
+      rationale: >
+        Spec defines this as a manual smoke test outside CI; DirectRoute is
+        not available to the agent. User approved completing with AC7 pending
+        human verification via POST /api/trucks/download + DirectRoute import.
+
+learnings:
+  - >
+    The DirectRoute truck-file field reference (Notion: "DirectRoute: the
+    Truck File") confirms EDate/LDate are dispatch-day OFFSETS (1 = dispatch
+    date), not text dates — this invalidated the research-gate caution about
+    VBA DateSerial text replication and simplified the macro port to plain
+    integers.
+  - >
+    TrkID composition ("T01-Wk1-SU", built from Territory + Dash/Wk Repeater
+    helper columns) is provisional — no macro golden sample exists yet. The
+    byte-parity test skips until fixtures/truck/single_depot_baseline.truck
+    plus its matching .json config land; procedure documented in
+    fixtures/truck/README.md.
+  - >
+    Volume capacity columns are appended AFTER the 76 base columns, and
+    volumes are optional at the API level (wizard UI can still require >=1).
+    This keeps AC1's exact 76-column parity for macro-default requests while
+    satisfying AC5 dynamic columns.
+  - >
+    Paired endpoints resolve the file+metadata delivery question from
+    research: POST /api/trucks/generate returns JSON metadata with base64
+    .TRUCK content; POST /api/trucks/download returns raw bytes with
+    Content-Disposition. SPEC-002/003 should mirror this contract.
+  - >
+    Windows bootcamp environment had no Python toolchain (only the Microsoft
+    Store stub). Installed uv via winget; corporate TLS interception requires
+    UV_SYSTEM_CERTS=true (UV_NATIVE_TLS is deprecated) for uv downloads.
+    Pinned fastapi==0.141.1 / pydantic==2.13.4 resolved as speced.
