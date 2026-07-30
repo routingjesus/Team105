@@ -2,7 +2,7 @@
 id: SPEC-001
 title: "Truck file generator (.TRUCK)"
 category: feature
-owner: Tye Lofts
+owner: Morgan Pierce
 authored_by: automated
 ---
 
