@@ -13,39 +13,66 @@ ready_sha: "421e5a2f7c0eb95719ebb7832856dd399ea4795d"
 
 completion:
   date: 2026-07-30
-  pull_requests: []
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/2"
   acceptance_criteria_waived:
-    - criterion: "AC7 — generated file loads in DirectRoute 26.x without blocking schema errors"
+    - acceptance_criteria: "Generated truck file loads in DirectRoute 26.x without blocking schema errors (manual smoke test)"
       rationale: >
         Spec defines this as a manual smoke test outside CI; DirectRoute is
-        not available to the agent. User approved completing with AC7 pending
-        human verification via POST /api/trucks/download + DirectRoute import.
+        not available to the agent. User approved completing with the AC
+        pending human verification via POST /api/trucks/download +
+        DirectRoute import.
 
 learnings:
-  - >
-    The DirectRoute truck-file field reference (Notion: "DirectRoute: the
-    Truck File") confirms EDate/LDate are dispatch-day OFFSETS (1 = dispatch
-    date), not text dates — this invalidated the research-gate caution about
-    VBA DateSerial text replication and simplified the macro port to plain
-    integers.
-  - >
-    TrkID composition ("T01-Wk1-SU", built from Territory + Dash/Wk Repeater
-    helper columns) is provisional — no macro golden sample exists yet. The
-    byte-parity test skips until fixtures/truck/single_depot_baseline.truck
-    plus its matching .json config land; procedure documented in
-    fixtures/truck/README.md.
-  - >
-    Volume capacity columns are appended AFTER the 76 base columns, and
-    volumes are optional at the API level (wizard UI can still require >=1).
-    This keeps AC1's exact 76-column parity for macro-default requests while
-    satisfying AC5 dynamic columns.
-  - >
-    Paired endpoints resolve the file+metadata delivery question from
-    research: POST /api/trucks/generate returns JSON metadata with base64
-    .TRUCK content; POST /api/trucks/download returns raw bytes with
-    Content-Disposition. SPEC-002/003 should mirror this contract.
-  - >
-    Windows bootcamp environment had no Python toolchain (only the Microsoft
-    Store stub). Installed uv via winget; corporate TLS interception requires
-    UV_SYSTEM_CERTS=true (UV_NATIVE_TLS is deprecated) for uv downloads.
-    Pinned fastapi==0.141.1 / pydantic==2.13.4 resolved as speced.
+  - type: assumption_invalidated
+    summary: "EDate/LDate in .TRUCK files are dispatch-day offsets, not text dates"
+    context: >
+      The DirectRoute truck-file field reference (Notion: "DirectRoute: the
+      Truck File") documents EDate/LDate as day offsets where 1 = dispatch
+      date. This invalidated the research-gate caution about replicating VBA
+      DateSerial text representations — the macro port in
+      backend/generators/truck.py emits plain integers (EDate = LDate =
+      dispatch-day index).
+    tags: [directroute, truck-file, file-format, edate-ldate]
+    date: 2026-07-30
+  - type: constraint_found
+    summary: "TrkID composition is provisional until a macro golden sample lands"
+    context: >
+      TrkID ("T01-Wk1-SU", composed from Territory + Dash/Wk Repeater helper
+      columns) has no format authority — no known-good Explode my Trucks
+      output exists yet. The byte-parity golden test skips until
+      fixtures/truck/single_depot_baseline.truck plus its matching .json
+      config land; procedure documented in fixtures/truck/README.md.
+    tags: [truck-file, golden-master, fixtures, trkid]
+    date: 2026-07-30
+  - type: decision_made
+    summary: "Volume capacity columns append after the 76 base columns; volumes optional at API level"
+    context: >
+      Appending user-named volume columns after Dash Repeater keeps AC1's
+      exact 76-column macro parity for volume-less requests while satisfying
+      AC5 dynamic columns. Volumes are optional in the TruckConfig schema
+      (the wizard UI can still require >=1); the ordered column map in
+      backend/generators/truck.py makes the extension a data change, not an
+      emitter fork.
+    tags: [truck-file, file-format, volumes, api-contract]
+    date: 2026-07-30
+  - type: decision_made
+    summary: "Paired endpoints deliver .TRUCK output: JSON+base64 generate and raw download"
+    context: >
+      Resolves the research open question of file+metadata delivery.
+      POST /api/trucks/generate returns routing metadata with base64 .TRUCK
+      content; POST /api/trucks/download returns raw bytes with
+      Content-Disposition. backend/schemas/truck_config.py is the canonical
+      contract SPEC-002/003 mirror.
+    tags: [api-contract, fastapi, file-delivery]
+    date: 2026-07-30
+  - type: constraint_found
+    summary: "Bootcamp Windows hosts need uv via winget and system TLS certs"
+    context: >
+      No Python toolchain is preinstalled (only the Microsoft Store stub).
+      Installed uv via winget (astral-sh.uv); corporate TLS interception
+      breaks uv downloads unless UV_SYSTEM_CERTS=true is set (UV_NATIVE_TLS
+      is deprecated). Pinned fastapi==0.141.1 / pydantic==2.13.4 resolved as
+      speced.
+    tags: [environment, windows, uv, tls]
+    date: 2026-07-30
