@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: ready
+status: in_progress
 created: 2026-07-27
 updated: 2026-08-03
 
@@ -8,9 +8,6 @@ tracking_id: "Team-105-Dataset-Creation-Wizard-PRD"
 
 depends_on:
   - "SPEC-001"
-
-branching:
-  base_branch: "SPEC-001-truck-file-generator"
 
 coordination:
   blast_radius: isolated

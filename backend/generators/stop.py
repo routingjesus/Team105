@@ -1,0 +1,292 @@
+"""`.XLSX` stop file generator (SPEC-002).
+
+Column order and required-field minimums come from the owner-supplied
+golden templates (`fixtures/stop/TEMPLATE_NewConfigStopFile.xls`,
+customer-facing variant). Mirrors SPEC-001's `backend/generators/truck.py`
+pattern: an ordered column-definition table drives row rendering, plus a
+dynamic segment (here, volume columns) that expands based on the request.
+"""
+
+from __future__ import annotations
+
+import io
+import random
+from dataclasses import dataclass, field
+from typing import Callable
+
+import pandas as pd
+
+from backend.schemas.stop_config import PATTERN_DAY_LETTERS, StopConfig
+from backend.schemas.truck_config import _validate_ascii
+from backend.services.spatial import (
+    filter_by_radius,
+    filter_by_state,
+    resolve_depot_coordinates,
+    thin_to_target,
+)
+
+# Golden column order (customer-facing template, 70 columns) with the two
+# generic volume slots ("Cube", "Weight") collapsed into one dynamic
+# segment marker -- volume columns are named after the request's own
+# volume names ("can be named anything" per the template's own field
+# description), not hardcoded.
+VOLUMES_MARKER = "__VOLUMES__"
+
+COLUMN_ORDER: tuple[str, ...] = (
+    "Name", "Contact", "Phone", "Store #", "ID2", "ID3", "Address", "Address2",
+    "City", "State", "Zip", "FixedTime", "Rt", "Seq", "SzRestriction", "EqCode",
+    VOLUMES_MARKER, "UnldCube", "UnldWeight", "CloseTW", "Open1", "Close1",
+    "Pattern1", "Open2", "Close2", "Pattern2", "Longitude", "Latitude", "Symbol",
+    "Size", "Color", "Selected", "EarliestDate", "LatestDate", "EarlyBuffer",
+    "LateBuffer", "PenaltyCost", "AddressErr", "GeoResult", "MaxSplits",
+    "CurrentRoute", "RouteSequence", "ServiceDate", "Zone", "AMStart", "AMEnd",
+    "AMAdj", "PMStart", "PMEnd", "PMAdj", "Territory", "Day", "Frequency",
+    "ServTm", "EstTime", "StemTm", "DrvBtwnStop", "Lock", "OrgTerritory",
+    "OrgDay", "Change", "MinDaysBetweenDeliveries", "MaxDaysBetweenDeliveries",
+    "Patterns", "Delivery Day", "AssignedDays", "Priority", "OnFinalize", "Country",
+)
+
+REQUIRED_COLUMNS = (
+    "Name", "Store #", "Address", "City", "State", "Zip", "FixedTime",
+    "Open1", "Close1", "Pattern1", "Frequency",
+)
+
+_ALIAS_TARGETS = {
+    "Name": "name",
+    "Contact": "contact",
+    "Phone": "phone",
+    "Store #": "id1",
+    "ID2": "id2",
+    "ID3": "id3",
+    "Address2": "address_2",
+}
+
+PATTERN_SCOPE_DAYS: dict[str, tuple[str, ...]] = {
+    "week": tuple(PATTERN_DAY_LETTERS),
+    "weekday": ("M", "T", "W", "R", "F"),
+    "weekend": ("S", "A"),
+}
+
+
+class FrequencyConsistencyError(ValueError):
+    """Raised when no requested frequency value fits the routing horizon."""
+
+
+def _alias(aliases, key: str, default: str) -> str:
+    if aliases is None:
+        return default
+    value = getattr(aliases, key)
+    return value if value else default
+
+
+def build_header(config: StopConfig) -> list[str]:
+    """Column headers with aliases applied and volume columns expanded."""
+    volume_names = [a.name for a in config.volume_answers]
+    header: list[str] = []
+    for col in COLUMN_ORDER:
+        if col == VOLUMES_MARKER:
+            header.extend(volume_names)
+        elif col in _ALIAS_TARGETS:
+            header.append(_alias(config.aliases, _ALIAS_TARGETS[col], col))
+        else:
+            header.append(col)
+    return header
+
+
+def achievable_frequency_values(frequency_values: list[float], weeks: int) -> list[float]:
+    """Filter requested Frequency values to ones representable in the routing horizon.
+
+    Values >= 1 are weekly-or-more-often and always fit. Values < 1 imply a
+    multi-week cycle (cycle_weeks = 1 / value); a value only "fits" if that
+    cycle completes at least once within the routing horizon.
+    """
+    achievable = []
+    for value in frequency_values:
+        if value >= 1:
+            achievable.append(value)
+            continue
+        cycle_weeks = 1 / value
+        if cycle_weeks <= weeks:
+            achievable.append(value)
+    return achievable
+
+
+def build_pattern1(scope: str, specific_days: list[str] | None, rng: random.Random) -> str:
+    """Render a 7-char SMTWRFA pattern string; '-' marks an inactive day."""
+    if scope == "specific_days":
+        active = set(specific_days or [])
+    elif scope == "random":
+        all_days = list(PATTERN_DAY_LETTERS)
+        k = rng.randint(1, len(all_days))
+        active = set(rng.sample(all_days, k))
+    else:
+        active = set(PATTERN_SCOPE_DAYS[scope])
+    return "".join(letter if letter in active else "-" for letter in PATTERN_DAY_LETTERS)
+
+
+def build_time_window(config: StopConfig, rng: random.Random) -> tuple[int, int, str]:
+    """(open1, close1, pattern1) satisfying 0<=open1<=close1<=2359 and width>=FixedTime."""
+    tw = config.time_window
+    fixed_time = int(config.fixed_time_minutes)
+    if tw.mode == "fixed":
+        open1, close1 = tw.open1, tw.close1
+    else:
+        # Military-time minutes-of-day, avoiding the 24:00-01:00 gap in the
+        # HHMM encoding by working in real minutes then converting back.
+        latest_open_minutes = max(0, (23 * 60 + 59) - fixed_time)
+        open_minutes = rng.randint(0, latest_open_minutes)
+        max_close_minutes = min(23 * 60 + 59, open_minutes + fixed_time + rng.randint(0, 180))
+        close_minutes = max(open_minutes + fixed_time, max_close_minutes)
+        close_minutes = min(close_minutes, 23 * 60 + 59)
+        open1 = (open_minutes // 60) * 100 + (open_minutes % 60)
+        close1 = (close_minutes // 60) * 100 + (close_minutes % 60)
+    pattern1 = build_pattern1(tw.pattern_scope, tw.specific_days, rng)
+    return open1, close1, pattern1
+
+
+def _military_to_minutes(value: int) -> int:
+    return (value // 100) * 60 + (value % 100)
+
+
+def validate_time_window(open1: int, close1: int, fixed_time_minutes: float) -> bool:
+    """True iff the window is in-range and wide enough to fit FixedTime."""
+    if not (0 <= open1 <= close1 <= 2359):
+        return False
+    width_minutes = _military_to_minutes(close1) - _military_to_minutes(open1)
+    return width_minutes >= fixed_time_minutes
+
+
+@dataclass(frozen=True)
+class SelectedStop:
+    """One candidate row from location_db, resolved to output-ready fields."""
+
+    name: str
+    contact: str
+    phone: str
+    id1: str
+    id3: str
+    address: str
+    address2: str
+    city: str
+    state: str
+    zip: str
+
+
+def _clean(value) -> str:
+    if pd.isna(value):
+        return ""
+    text = str(value).strip()
+    return _validate_ascii(text, "location_db field") if text else text
+
+
+def selected_stops_from_candidates(candidates: pd.DataFrame) -> list[SelectedStop]:
+    """Map location_db rows (post filter+thin) into output-ready stop records."""
+    stops = []
+    for _, row in candidates.iterrows():
+        stops.append(
+            SelectedStop(
+                name=_clean(row.get("Name")),
+                contact=_clean(row.get("Contact")),
+                phone=_clean(row.get("Phone")),
+                id1=_clean(row.get("ID1")) or _clean(row.get("Name")),
+                id3=_clean(row.get("ID3")),
+                address=_clean(row["Address"]),
+                address2=_clean(row.get("Address2")),
+                city=_clean(row["City"]),
+                state=_clean(row["State"]),
+                zip=_clean(row["Zip"]),
+            )
+        )
+    return stops
+
+
+def _volume_cells(config: StopConfig, rng: random.Random) -> list[str]:
+    cells = []
+    for answer in config.volume_answers:
+        if answer.mode == "fixed":
+            value = answer.value
+        else:
+            # Averaged mode: +/-15% jitter around the target mean.
+            value = answer.value * (1 + rng.uniform(-0.15, 0.15))
+        cells.append(f"{value:.2f}")
+    return cells
+
+
+def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random | None = None) -> list[list[str]]:
+    """Data rows, one (or more, if consolidation is enabled) per selected stop."""
+    rng = rng if rng is not None else random.Random(config.seed)
+    achievable = achievable_frequency_values(config.frequency_values, config.weeks)
+    if not achievable:
+        raise FrequencyConsistencyError(
+            f"None of {config.frequency_values} fit within a {config.weeks}-week routing horizon"
+        )
+
+    stops = selected_stops_from_candidates(candidates)
+    eq_targets: set[int] = set()
+    if config.eq_code is not None and config.eq_code.enabled:
+        count = max(1, round(len(stops) * config.eq_code.fraction))
+        eq_targets = set(rng.sample(range(len(stops)), min(count, len(stops))))
+
+    lines_per_customer = 1
+    if config.consolidation is not None and config.consolidation.enabled:
+        lines_per_customer = config.consolidation.lines_per_customer
+
+    rows: list[list[str]] = []
+    for stop_index, stop in enumerate(stops):
+        frequency = rng.choice(achievable)
+        open1, close1, pattern1 = build_time_window(config, rng)
+        eq_code = rng.choice(config.eq_code.codes) if stop_index in eq_targets else ""
+        volume_cells = _volume_cells(config, rng)
+
+        for line in range(1, lines_per_customer + 1):
+            id2 = f"ORD-{stop_index + 1:04d}-{line:02d}"
+            row_by_col = {
+                "Name": stop.name,
+                "Contact": stop.contact,
+                "Phone": stop.phone,
+                "Store #": stop.id1,
+                "ID2": id2,
+                "ID3": stop.id3,
+                "Address": stop.address,
+                "Address2": stop.address2,
+                "City": stop.city,
+                "State": stop.state,
+                "Zip": stop.zip,
+                "FixedTime": f"{config.fixed_time_minutes:g}",
+                "EqCode": eq_code,
+                "Open1": str(open1).zfill(4) if open1 else "0",
+                "Close1": str(close1).zfill(4) if close1 else "0",
+                "Pattern1": pattern1,
+                "Frequency": f"{frequency:g}",
+            }
+            row = []
+            for col in COLUMN_ORDER:
+                if col == VOLUMES_MARKER:
+                    row.extend(volume_cells)
+                else:
+                    row.append(row_by_col.get(col, ""))
+            rows.append(row)
+    return rows
+
+
+def select_candidates(config: StopConfig, location_db: pd.DataFrame) -> pd.DataFrame:
+    """Filter (radius or state) then density-thin to the requested stop count."""
+    selection = config.selection
+    if selection.mode == "radius":
+        dc_coordinates = [resolve_depot_coordinates(depot, location_db) for depot in config.depots]
+        filtered = filter_by_radius(location_db, dc_coordinates, selection.radius_miles)
+    else:
+        filtered = filter_by_state(location_db, selection.states)
+    return thin_to_target(filtered, config.stop_count, config.seed)
+
+
+def generate_stop_file(config: StopConfig, candidates: pd.DataFrame) -> bytes:
+    """Emit the complete `.XLSX` stop file as bytes."""
+    rng = random.Random(config.seed)
+    header = build_header(config)
+    rows = build_rows(config, candidates, rng)
+    df = pd.DataFrame(rows, columns=header)
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        df.to_excel(writer, sheet_name="Stop File", index=False)
+    return buffer.getvalue()

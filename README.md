@@ -9,7 +9,7 @@ wizard. Bootcamp capstone for AI Bootcamp Cohort 3, Team 105.
 | Piece | Spec | State |
 |-------|------|-------|
 | Truck file generator + API | SPEC-001 | Done ([PR #2](https://github.com/routingjesus/Team105/pull/2)) |
-| Stop file generator | SPEC-002 | Ready |
+| Stop file generator | SPEC-002 | In progress |
 | Wizard UI (Next.js) | SPEC-003 | Ready |
 
 Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
@@ -32,11 +32,12 @@ uv pip install -r backend/requirements.txt
 .venv\Scripts\python.exe -m uvicorn backend.main:app --reload
 ```
 
-Endpoints (same request body, two delivery shapes):
+Endpoints (same request body per generator, two delivery shapes each):
 
-- `POST /api/trucks/generate` — JSON routing metadata with base64-encoded
-  `.TRUCK` content
-- `POST /api/trucks/download` — raw `.TRUCK` file with `Content-Disposition`
+- `POST /api/trucks/generate` / `POST /api/stops/generate` — JSON metadata
+  with base64-encoded file content
+- `POST /api/trucks/download` / `POST /api/stops/download` — raw file
+  bytes with `Content-Disposition`
 
 Interactive docs at `http://127.0.0.1:8000/docs`.
 
@@ -46,12 +47,17 @@ Interactive docs at `http://127.0.0.1:8000/docs`.
 .venv\Scripts\python.exe -m pytest tests/
 ```
 
-One test skips by design: the golden byte-parity test awaits a known-good
-"Explode my Trucks" macro sample — see `fixtures/truck/README.md` to add it.
+A few tests skip by design:
+
+- The truck generator's golden byte-parity test awaits a known-good
+  "Explode my Trucks" macro sample — see `fixtures/truck/README.md` to add it.
+- The two stop-endpoint integration tests await the bundled production
+  location database — see `fixtures/stop/README.md` for the open item.
 
 ## Layout
 
 - `backend/schemas/` — Pydantic request/response contracts (canonical for all specs)
 - `backend/generators/` — pure file emitters, no I/O
+- `backend/services/` — supporting logic with I/O or numeric work (e.g. `spatial.py`)
 - `tests/` — pytest suite
 - `.spec/` — Creator specs, lifecycle metadata, and curated learnings ledger
