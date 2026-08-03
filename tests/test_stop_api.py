@@ -6,14 +6,30 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import LOCATION_DB_PATH, app
+from backend.services.spatial import load_location_db
 
 client = TestClient(app)
 
 
 @pytest.fixture
 def request_body() -> dict:
+    # Pick a depot address that actually resolves against whichever
+    # location_db is bundled (production data or none at all), instead of
+    # a hardcoded address that would only match a specific dataset.
+    if LOCATION_DB_PATH.exists():
+        first_row = load_location_db(LOCATION_DB_PATH).iloc[0]
+        depot = {
+            "address": str(first_row["Address"]),
+            "city": str(first_row["City"]),
+            "state": str(first_row["State"]),
+            "zip": str(first_row["Zip"]),
+            "truck_count": 3,
+        }
+    else:
+        depot = {"address": "1 Depot Way", "city": "Columbus", "state": "OH", "zip": "43215", "truck_count": 3}
+
     return {
-        "depots": [{"address": "1 Depot Way", "city": "Columbus", "state": "OH", "zip": "43215", "truck_count": 3}],
+        "depots": [depot],
         "weeks": 4,
         "volumes": [{"name": "Cube", "capacity": 1800}],
         "selection": {"mode": "radius", "radius_miles": 50},

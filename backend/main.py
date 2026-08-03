@@ -26,7 +26,7 @@ from backend.services.spatial import DepotCoordinateError, load_location_db
 
 TRUCK_FILENAME = "fleet.truck"
 STOP_FILENAME = "stops.xlsx"
-LOCATION_DB_PATH = Path(__file__).parent / "data" / "location_db.xls"
+LOCATION_DB_PATH = Path(__file__).parent / "data" / "location_db.xlsx"
 
 app = FastAPI(title="Team105 Dataset Creation Wizard API")
 

@@ -99,16 +99,25 @@ learnings:
       caught what test-suite-passing alone did not.
     tags: [self-review, validation, bug-fix]
     date: 2026-08-03
-  - type: gap_found
-    summary: "backend/data/location_db.xls (production master file) is still owner-supplied, not yet bundled"
+  - type: decision_made
+    summary: "Production location_db bundled with real geography but synthetic names, not left as an open item"
     context: >
-      SPEC-002's implementation guidance flagged this as an open item before
-      coding began. Confirmed still open at completion: /api/stops/generate
-      and /api/stops/download return 503 until the file is added, and two
-      integration tests in tests/test_stop_api.py skip until then. All unit
-      tests instead exercise a synthetic sample database
-      (fixtures/stop/sample_location_db.xlsx, regenerable via
-      fixtures/stop/make_sample_location_db.py) documented in
-      fixtures/stop/README.md.
-    tags: [gap, directroute-file-formats, deployment]
+      The owner supplied the real master location database (a 2015
+      "Customer Sites" export, ~21.9k real store rows with proprietary
+      names/brands) after initial implementation. Per explicit owner
+      instruction, addresses/city/state/zip/lat-long were kept as-is
+      (useful real geography, not considered sensitive here) but customer/
+      store names were replaced with deterministic synthetic placeholders
+      (backend/data/prepare_location_db.py) before bundling as
+      backend/data/location_db.xlsx -- preserving SPEC-002's "synthetic,
+      non-proprietary" output goal without discarding real-world geographic
+      realism. Verified against the actual bundled file: performance holds
+      well inside the 3-second NFR budget (~0.1s for 50 stops from all
+      21,870 candidate rows, more than double the spec's assumed 10k
+      scale). Lesson: when a spec calls a bundled data file an open item
+      and the owner later supplies real source data, confirm explicitly
+      whether raw fields are safe to ship before writing them into the
+      repo -- don't assume "the owner gave me the file" means "commit it
+      verbatim."
+    tags: [directroute-file-formats, data-governance, performance]
     date: 2026-08-03

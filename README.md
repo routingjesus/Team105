@@ -51,8 +51,8 @@ A few tests skip by design:
 
 - The truck generator's golden byte-parity test awaits a known-good
   "Explode my Trucks" macro sample — see `fixtures/truck/README.md` to add it.
-- The two stop-endpoint integration tests await the bundled production
-  location database — see `fixtures/stop/README.md` for the open item.
+- One stop-API test only runs when `backend/data/location_db.xlsx` is
+  *absent* (a fresh-clone scenario) — see `backend/data/README.md`.
 
 ## Layout
 

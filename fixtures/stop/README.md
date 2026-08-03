@@ -24,13 +24,13 @@ Columbus, OH cluster and a sparse Texas cluster, with a `Test DC` record
 for exact-address depot-coordinate resolution. Regenerate it with
 `python fixtures/stop/make_sample_location_db.py`.
 
-## Open item: bundled production database
+## Production database
 
-**`backend/data/location_db.xls` does not exist yet.** SPEC-002's
-implementation guidance calls for the owner to supply the real master
-location database (the full candidate pool the generator selects from in
-production); it's a bundling/deployment prerequisite, not something this
-spec's code can fabricate. Until it's added, `/api/stops/generate` and
-`/api/stops/download` return `503` with a message pointing at the missing
-path. All unit tests use `sample_location_db.xlsx` instead and are
-unaffected by this gap.
+**`backend/data/location_db.xlsx` is now bundled** -- see
+`backend/data/README.md` for what it contains (real geography, synthetic
+names) and how it was built. Before it landed, `/api/stops/generate` and
+`/api/stops/download` returned `503`; that path is still exercised by
+`tests/test_stop_api.py::TestLocationDbPrerequisite` whenever the file is
+absent (e.g. a fresh clone before running `prepare_location_db.py`). All
+unit tests in this repo use the synthetic `sample_location_db.xlsx`
+instead of the production file, so they're unaffected either way.
