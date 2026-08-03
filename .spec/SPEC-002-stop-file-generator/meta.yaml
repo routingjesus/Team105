@@ -15,4 +15,4 @@ branching:
 coordination:
   blast_radius: isolated
   parallel_safe: false
-ready_sha: "13dc29faee749742507671569e0d66298af13bdf"
+ready_sha: "0c6832da8b0fcebd97817069abb12e8396a71ca9"
