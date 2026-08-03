@@ -104,20 +104,28 @@ learnings:
     context: >
       The owner supplied the real master location database (a 2015
       "Customer Sites" export, ~21.9k real store rows with proprietary
-      names/brands) after initial implementation. Per explicit owner
-      instruction, addresses/city/state/zip/lat-long were kept as-is
-      (useful real geography, not considered sensitive here) but customer/
-      store names were replaced with deterministic synthetic placeholders
+      names/brands/store numbers) after initial implementation. Per
+      explicit owner instruction, addresses/city/state/zip/lat-long were
+      kept as-is (useful real geography, not considered sensitive here)
+      but customer/store names and the real Store # (ID1) were replaced
+      with deterministic synthetic placeholders
       (backend/data/prepare_location_db.py) before bundling as
       backend/data/location_db.xlsx -- preserving SPEC-002's "synthetic,
       non-proprietary" output goal without discarding real-world geographic
-      realism. Verified against the actual bundled file: performance holds
-      well inside the 3-second NFR budget (~0.1s for 50 stops from all
-      21,870 candidate rows, more than double the spec's assumed 10k
-      scale). Lesson: when a spec calls a bundled data file an open item
-      and the owner later supplies real source data, confirm explicitly
-      whether raw fields are safe to ship before writing them into the
-      repo -- don't assume "the owner gave me the file" means "commit it
-      verbatim."
-    tags: [directroute-file-formats, data-governance, performance]
+      realism. The ID1 scramble was added after a security-surface
+      self-review lane caught that a real Store # next to a real address
+      is a workable re-identification key even with the Name field
+      scrambled (owner confirmed: "id1 should already be generic").
+      Contact/Phone/ID3 were verified programmatically as 0 non-null of
+      21,870 rows in the actual committed file -- not just assumed blank.
+      Verified against the actual bundled file: performance holds well
+      inside the 3-second NFR budget (~0.1s for 50 stops from all 21,870
+      candidate rows, more than double the spec's assumed 10k scale).
+      Lesson: when a spec calls a bundled data file an open item and the
+      owner later supplies real source data, confirm explicitly which
+      *columns* are safe to ship, not just the columns the owner
+      spontaneously mentioned -- a security review lane caught a
+      re-identification field (Store #) the initial scrambling pass
+      missed.
+    tags: [directroute-file-formats, data-governance, performance, self-review]
     date: 2026-08-03

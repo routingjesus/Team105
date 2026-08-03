@@ -24,11 +24,14 @@ def build_location_db(source_path: str) -> pd.DataFrame:
     source = pd.read_excel(source_path, sheet_name="store locations", engine="xlrd")
 
     out = pd.DataFrame()
-    # Deterministic synthetic name, one per row -- scrambles the real
-    # "Store Name" (e.g. "PUBLIX 889") without depending on row content,
-    # so no fragment of the proprietary name survives.
+    # Deterministic synthetic name/ID, one per row -- scrambles the real
+    # "Store Name" (e.g. "PUBLIX 889") and the real "Store #" without
+    # depending on row content, so no fragment of the proprietary name or
+    # a re-identifying store number survives. A real Store # next to a
+    # real address would otherwise be a workable re-identification key
+    # (retailers commonly publish store-number-to-address mappings).
     out["Name"] = [f"Customer {i + 1:05d}" for i in range(len(source))]
-    out["ID1"] = source["Store #"].astype("string").fillna("")
+    out["ID1"] = [f"{i + 1:06d}" for i in range(len(source))]
     out["Contact"] = source.get("Contact", "")
     out["Phone"] = source.get("Phone", "")
     out["ID2"] = source.get("ID2", "")
