@@ -16,7 +16,7 @@ from typing import Callable
 
 import pandas as pd
 
-from backend.schemas.stop_config import PATTERN_DAY_LETTERS, StopConfig
+from backend.schemas.stop_config import ALIAS_FIELD_MAP, PATTERN_DAY_LETTERS, StopConfig, validate_time_window
 from backend.schemas.truck_config import _validate_ascii
 from backend.services.spatial import (
     filter_by_radius,
@@ -51,14 +51,17 @@ REQUIRED_COLUMNS = (
     "Open1", "Close1", "Pattern1", "Frequency",
 )
 
+# COLUMN_ORDER uses the golden template's literal header text ("Store #",
+# "Address2"), which differs slightly from ALIAS_FIELD_MAP's canonical
+# field names ("ID1", "Address_2") -- bridge the two here.
 _ALIAS_TARGETS = {
-    "Name": "name",
-    "Contact": "contact",
-    "Phone": "phone",
-    "Store #": "id1",
-    "ID2": "id2",
-    "ID3": "id3",
-    "Address2": "address_2",
+    "Name": ALIAS_FIELD_MAP["Name"],
+    "Contact": ALIAS_FIELD_MAP["Contact"],
+    "Phone": ALIAS_FIELD_MAP["Phone"],
+    "Store #": ALIAS_FIELD_MAP["ID1"],
+    "ID2": ALIAS_FIELD_MAP["ID2"],
+    "ID3": ALIAS_FIELD_MAP["ID3"],
+    "Address2": ALIAS_FIELD_MAP["Address_2"],
 }
 
 PATTERN_SCOPE_DAYS: dict[str, tuple[str, ...]] = {
@@ -141,19 +144,11 @@ def build_time_window(config: StopConfig, rng: random.Random) -> tuple[int, int,
         open1 = (open_minutes // 60) * 100 + (open_minutes % 60)
         close1 = (close_minutes // 60) * 100 + (close_minutes % 60)
     pattern1 = build_pattern1(tw.pattern_scope, tw.specific_days, rng)
+    assert validate_time_window(open1, close1, config.fixed_time_minutes), (
+        f"generated window ({open1}-{close1}) violates the AC6 invariant; "
+        f"this should be impossible by construction for fixed_time_minutes={config.fixed_time_minutes}"
+    )
     return open1, close1, pattern1
-
-
-def _military_to_minutes(value: int) -> int:
-    return (value // 100) * 60 + (value % 100)
-
-
-def validate_time_window(open1: int, close1: int, fixed_time_minutes: float) -> bool:
-    """True iff the window is in-range and wide enough to fit FixedTime."""
-    if not (0 <= open1 <= close1 <= 2359):
-        return False
-    width_minutes = _military_to_minutes(close1) - _military_to_minutes(open1)
-    return width_minutes >= fixed_time_minutes
 
 
 @dataclass(frozen=True)
@@ -254,8 +249,8 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
                 "Zip": stop.zip,
                 "FixedTime": f"{config.fixed_time_minutes:g}",
                 "EqCode": eq_code,
-                "Open1": str(open1).zfill(4) if open1 else "0",
-                "Close1": str(close1).zfill(4) if close1 else "0",
+                "Open1": str(open1).zfill(4),
+                "Close1": str(close1).zfill(4),
                 "Pattern1": pattern1,
                 "Frequency": f"{frequency:g}",
             }
@@ -269,15 +264,20 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
     return rows
 
 
-def select_candidates(config: StopConfig, location_db: pd.DataFrame) -> pd.DataFrame:
-    """Filter (radius or state) then density-thin to the requested stop count."""
+def select_candidates(config: StopConfig, location_db: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Filter (radius or state) then density-thin to the requested stop count.
+
+    Returns (thinned_candidates, pre_thin_candidate_count) so callers can
+    report both the raw candidate pool size and the post-thinning selection.
+    """
     selection = config.selection
     if selection.mode == "radius":
         dc_coordinates = [resolve_depot_coordinates(depot, location_db) for depot in config.depots]
         filtered = filter_by_radius(location_db, dc_coordinates, selection.radius_miles)
     else:
         filtered = filter_by_state(location_db, selection.states)
-    return thin_to_target(filtered, config.stop_count, config.seed)
+    thinned = thin_to_target(filtered, config.stop_count, config.seed)
+    return thinned, len(filtered)
 
 
 def generate_stop_file(config: StopConfig, candidates: pd.DataFrame) -> bytes:

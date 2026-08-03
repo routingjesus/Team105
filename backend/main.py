@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 
-from backend.generators.stop import generate_stop_file, select_candidates
+from backend.generators.stop import FrequencyConsistencyError, generate_stop_file, select_candidates
 from backend.generators.truck import generate_truck_file
 from backend.schemas.stop_config import StopConfig, StopGenerationResponse
 from backend.schemas.truck_config import (
@@ -80,26 +80,29 @@ def _load_location_db_or_503():
     return load_location_db(LOCATION_DB_PATH)
 
 
-def _generate_stop_content(config: StopConfig) -> tuple[bytes, int, int]:
+def _generate_stop_content(config: StopConfig) -> tuple[bytes, int, int, int]:
     location_db = _load_location_db_or_503()
     try:
-        candidates = select_candidates(config, location_db)
+        candidates, candidate_count = select_candidates(config, location_db)
     except DepotCoordinateError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    content = generate_stop_file(config, candidates)
+    try:
+        content = generate_stop_file(config, candidates)
+    except FrequencyConsistencyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     lines_per_customer = (
         config.consolidation.lines_per_customer
         if config.consolidation and config.consolidation.enabled
         else 1
     )
-    return content, len(candidates), len(candidates) * lines_per_customer
+    return content, candidate_count, len(candidates), len(candidates) * lines_per_customer
 
 
 @app.post("/api/stops/generate", response_model=StopGenerationResponse)
 def generate_stops(config: StopConfig) -> StopGenerationResponse:
-    content, selected_count, output_row_count = _generate_stop_content(config)
+    content, candidate_count, selected_count, output_row_count = _generate_stop_content(config)
     return StopGenerationResponse(
-        candidate_count=selected_count,
+        candidate_count=candidate_count,
         selected_stop_count=selected_count,
         output_row_count=output_row_count,
         seed=config.seed,
@@ -110,7 +113,7 @@ def generate_stops(config: StopConfig) -> StopGenerationResponse:
 
 @app.post("/api/stops/download")
 def download_stops(config: StopConfig) -> Response:
-    content, _, _ = _generate_stop_content(config)
+    content, _, _, _ = _generate_stop_content(config)
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

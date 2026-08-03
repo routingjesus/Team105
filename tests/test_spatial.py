@@ -92,6 +92,18 @@ def test_thin_to_target_noop_when_already_under_target(location_db):
     assert len(thinned) == len(location_db)
 
 
+def test_thin_to_target_returns_empty_for_non_positive_target(location_db):
+    assert len(thin_to_target(location_db, target_count=0, seed=1)) == 0
+    assert len(thin_to_target(location_db, target_count=-5, seed=1)) == 0
+
+
+def test_filter_by_state_returns_empty_for_unmatched_state(location_db):
+    filtered = filter_by_state(location_db, ["ZZ"])
+    assert len(filtered) == 0
+    # Thinning an already-empty frame should not error.
+    assert len(thin_to_target(filtered, target_count=10, seed=1)) == 0
+
+
 def test_thin_to_target_preserves_spatial_spread_not_clustered(location_db):
     # Thinning the OH+TX mix down to 10 should keep representation from
     # both clusters, not collapse onto one (a naive prefix/random-without-

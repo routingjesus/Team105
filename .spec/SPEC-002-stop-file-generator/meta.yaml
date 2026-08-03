@@ -67,6 +67,39 @@ learnings:
     tags: [api-contracts, directroute-file-formats]
     date: 2026-08-03
   - type: gap_found
+    summary: "DepotSummary (truck_config.py) has no ASCII validators, unlike its sibling DepotSpec"
+    context: >
+      Self-review's security-surface lane found that StopConfig.depots
+      (typed as DepotSummary, imported from backend/schemas/truck_config.py)
+      can carry non-ASCII/tab/newline text, unlike DepotSpec which validates
+      via _validate_ascii. Impact is low in practice -- depot fields are only
+      used for location_db address matching and error messages, never
+      written to the output file (stop rows are ASCII-validated separately
+      via backend/generators/stop.py's _clean function). Not fixed here:
+      truck_config.py is SPEC-001's file and out of SPEC-002's "Files NOT to
+      modify" boundary. Flagging for whoever next touches truck_config.py.
+    tags: [gap, api-contracts, validation]
+    date: 2026-08-03
+  - type: constraint_found
+    summary: "Self-review caught a real AC6 gap: schema-level validation exists but wasn't wired into StopConfig"
+    context: >
+      spec-compliance and approach-quality review lanes found: (1) a
+      standalone validate_time_window() function existed and was unit-tested
+      but never called from the fixed-mode generation path, so an inverted
+      or FixedTime-narrower fixed window could reach output unvalidated
+      (blocking); (2) Open1/Close1 rendered "0" instead of "0000" for a
+      legitimate midnight value because `if open1 else "0"` treats int 0 as
+      falsy (blocking). Both fixed: validate_time_window moved to
+      stop_config.py and wired into a StopConfig model_validator so invalid
+      fixed windows are rejected at request validation (422), with a runtime
+      assert as a second guard in build_time_window's randomized path;
+      Open1/Close1 render unconditionally with zfill(4). Lesson: a validator
+      function existing and being unit-tested is not evidence it's actually
+      enforced on the request path -- self-review's AC-by-AC code trace
+      caught what test-suite-passing alone did not.
+    tags: [self-review, validation, bug-fix]
+    date: 2026-08-03
+  - type: gap_found
     summary: "backend/data/location_db.xls (production master file) is still owner-supplied, not yet bundled"
     context: >
       SPEC-002's implementation guidance flagged this as an open item before

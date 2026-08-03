@@ -20,7 +20,30 @@ FREQUENCY_VALUES: tuple[float, ...] = (7, 6, 5, 4, 3, 2, 1, 0.5, 0.25, 0.125, 0.
 # DirectRoute SMTWRFA convention. "A" stands in for Saturday.
 PATTERN_DAY_LETTERS = "SMTWRFA"
 
-ALIASABLE_FIELDS = ("Name", "Contact", "Phone", "ID1", "ID2", "ID3", "Address_2")
+# Single source of truth for aliasable output columns -> AliasConfig
+# attribute names, reused by both AliasConfig's own validation and
+# backend.generators.stop.build_header's header substitution.
+ALIAS_FIELD_MAP: dict[str, str] = {
+    "Name": "name",
+    "Contact": "contact",
+    "Phone": "phone",
+    "ID1": "id1",
+    "ID2": "id2",
+    "ID3": "id3",
+    "Address_2": "address_2",
+}
+
+
+def _military_to_minutes(value: int) -> int:
+    return (value // 100) * 60 + (value % 100)
+
+
+def validate_time_window(open1: int, close1: int, fixed_time_minutes: float) -> bool:
+    """True iff the window is in-range and wide enough to fit FixedTime."""
+    if not (0 <= open1 <= close1 <= 2359):
+        return False
+    width_minutes = _military_to_minutes(close1) - _military_to_minutes(open1)
+    return width_minutes >= fixed_time_minutes
 
 
 class SelectionConfig(BaseModel):
@@ -111,7 +134,7 @@ class AliasConfig(BaseModel):
 
     @model_validator(mode="after")
     def aliases_ascii(self) -> "AliasConfig":
-        for field_name in ("name", "contact", "phone", "id1", "id2", "id3", "address_2"):
+        for field_name in ALIAS_FIELD_MAP.values():
             value = getattr(self, field_name)
             if value is not None:
                 _validate_ascii(value, f"alias for {field_name}")
@@ -154,13 +177,18 @@ class StopConfig(BaseModel):
             raise ValueError(f"volume_answers reference unknown volume(s): {unknown}")
         return self
 
-
-class StopSummary(BaseModel):
-    """Echo of generation counts, for downstream wizard display."""
-
-    candidate_count: int
-    selected_stop_count: int
-    output_row_count: int
+    @model_validator(mode="after")
+    def fixed_time_window_is_valid(self) -> "StopConfig":
+        # Randomized mode always satisfies this by construction (see
+        # backend.generators.stop.build_time_window); only a caller-supplied
+        # fixed window can be inverted or narrower than FixedTime.
+        tw = self.time_window
+        if tw.mode == "fixed" and not validate_time_window(tw.open1, tw.close1, self.fixed_time_minutes):
+            raise ValueError(
+                f"fixed time window ({tw.open1}-{tw.close1}) must satisfy "
+                f"0 <= Open1 <= Close1 <= 2359 and (Close1 - Open1) >= FixedTime ({self.fixed_time_minutes})"
+            )
+        return self
 
 
 class StopGenerationResponse(BaseModel):

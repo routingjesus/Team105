@@ -4,6 +4,7 @@ import random
 
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 
 from backend.generators.stop import (
     COLUMN_ORDER,
@@ -119,9 +120,41 @@ class TestAchievableFrequency:
     def test_build_rows_raises_when_nothing_is_achievable(self, base_config, location_db):
         base_config.weeks = 1
         base_config.frequency_values = [0.083]  # ~quarterly, needs ~12 weeks
-        candidates = select_candidates(base_config, location_db)
+        candidates = select_candidates(base_config, location_db)[0]
         with pytest.raises(FrequencyConsistencyError):
             build_rows(base_config, candidates)
+
+
+class TestStopConfigRejectsInvalidFixedWindow:
+    """AC6 regression: an invalid caller-supplied fixed window must be
+    rejected at request validation, not silently written to output."""
+
+    def _config_kwargs(self, base_config, **overrides) -> dict:
+        kwargs = base_config.model_dump()
+        kwargs.update(overrides)
+        return kwargs
+
+    def test_inverted_fixed_window_rejected_at_request_validation(self, base_config):
+        kwargs = self._config_kwargs(
+            base_config, time_window={"mode": "fixed", "open1": 1700, "close1": 800, "pattern_scope": "week"}
+        )
+        with pytest.raises(ValidationError):
+            StopConfig(**kwargs)
+
+    def test_fixed_window_narrower_than_fixed_time_rejected_at_request_validation(self, base_config):
+        # 08:00-08:10 is 10 minutes wide; base_config.fixed_time_minutes is 15.
+        kwargs = self._config_kwargs(
+            base_config, time_window={"mode": "fixed", "open1": 800, "close1": 810, "pattern_scope": "week"}
+        )
+        with pytest.raises(ValidationError):
+            StopConfig(**kwargs)
+
+    def test_valid_fixed_window_at_exact_fixed_time_width_is_accepted(self, base_config):
+        # 08:00-08:15 is exactly 15 minutes wide, matching fixed_time_minutes.
+        kwargs = self._config_kwargs(
+            base_config, time_window={"mode": "fixed", "open1": 800, "close1": 815, "pattern_scope": "week"}
+        )
+        StopConfig(**kwargs)  # should not raise
 
 
 class TestTimeWindow:
@@ -144,6 +177,16 @@ class TestTimeWindow:
         for _ in range(5):
             open1, close1, pattern1 = build_time_window(base_config, rng)
             assert (open1, close1) == (800, 1700)
+
+    def test_midnight_open1_renders_zero_padded_not_falsy_blank(self, base_config, location_db):
+        # Regression: open1=0 (midnight) must render "0000", not "0" --
+        # `if open1 else ...` treats the legitimate int 0 as falsy.
+        base_config.time_window = TimeWindowConfig(mode="fixed", open1=0, close1=100, pattern_scope="week")
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        open1_idx = header.index("Open1")
+        rows = build_rows(base_config, candidates)
+        assert all(row[open1_idx] == "0000" for row in rows)
 
     def test_randomized_mode_always_satisfies_fixed_time_constraint(self, base_config):
         base_config.time_window = TimeWindowConfig(mode="randomized", pattern_scope="week")
@@ -176,12 +219,12 @@ class TestSelectedStops:
 
 class TestBuildRows:
     def test_row_count_matches_selected_stops_without_consolidation(self, base_config, location_db):
-        candidates = select_candidates(base_config, location_db)
+        candidates = select_candidates(base_config, location_db)[0]
         rows = build_rows(base_config, candidates)
         assert len(rows) == len(candidates) == base_config.stop_count
 
     def test_required_columns_are_populated_for_every_row(self, base_config, location_db):
-        candidates = select_candidates(base_config, location_db)
+        candidates = select_candidates(base_config, location_db)[0]
         header = build_header(base_config)
         rows = build_rows(base_config, candidates)
         indices = {col: header.index(col if col != "Store #" else "Store #") for col in REQUIRED_COLUMNS}
@@ -190,7 +233,7 @@ class TestBuildRows:
                 assert row[idx] != "", f"{col} was left blank"
 
     def test_frequency_values_come_from_requested_subset(self, base_config, location_db):
-        candidates = select_candidates(base_config, location_db)
+        candidates = select_candidates(base_config, location_db)[0]
         header = build_header(base_config)
         freq_idx = header.index("Frequency")
         rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
@@ -199,7 +242,7 @@ class TestBuildRows:
 
     def test_consolidation_creates_n_rows_per_customer_with_unique_id2(self, base_config, location_db):
         base_config.consolidation = ConsolidationConfig(enabled=True, lines_per_customer=3)
-        candidates = select_candidates(base_config, location_db)
+        candidates = select_candidates(base_config, location_db)[0]
         header = build_header(base_config)
         rows = build_rows(base_config, candidates)
         assert len(rows) == len(candidates) * 3
@@ -220,7 +263,7 @@ class TestBuildRows:
         base_config.stop_count = 20
         base_config.selection = SelectionConfig(mode="state", states=["OH"])
         base_config.eq_code = EqCodeConfig(enabled=True, codes=["LIFT", "PALLET"], fraction=0.25)
-        candidates = select_candidates(base_config, location_db)
+        candidates = select_candidates(base_config, location_db)[0]
         header = build_header(base_config)
         eq_idx = header.index("EqCode")
         rows = build_rows(base_config, candidates)
@@ -230,15 +273,28 @@ class TestBuildRows:
             assert row[eq_idx] in {"LIFT", "PALLET"}
 
     def test_deterministic_output_for_same_seed(self, base_config, location_db):
-        candidates = select_candidates(base_config, location_db)
+        candidates = select_candidates(base_config, location_db)[0]
         first = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
         second = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
         assert first == second
 
 
+class TestZeroCandidates:
+    def test_no_matching_state_produces_empty_but_valid_output(self, base_config, location_db):
+        base_config.selection = SelectionConfig(mode="state", states=["ZZ"])
+        candidates = select_candidates(base_config, location_db)[0]
+        assert len(candidates) == 0
+        rows = build_rows(base_config, candidates)
+        assert rows == []
+        content = generate_stop_file(base_config, candidates)
+        df = pd.read_excel(pd.io.common.BytesIO(content), sheet_name="Stop File")
+        assert len(df) == 0
+        assert list(df.columns) == build_header(base_config)
+
+
 class TestGenerateStopFile:
     def test_generates_valid_xlsx_readable_by_pandas(self, base_config, location_db):
-        candidates = select_candidates(base_config, location_db)
+        candidates = select_candidates(base_config, location_db)[0]
         content = generate_stop_file(base_config, candidates)
         assert content[:2] == b"PK"  # xlsx is a zip container
         df = pd.read_excel(pd.io.common.BytesIO(content), sheet_name="Stop File")
