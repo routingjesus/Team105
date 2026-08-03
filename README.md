@@ -9,7 +9,7 @@ wizard. Bootcamp capstone for AI Bootcamp Cohort 3, Team 105.
 | Piece | Spec | State |
 |-------|------|-------|
 | Truck file generator + API | SPEC-001 | Done ([PR #2](https://github.com/routingjesus/Team105/pull/2)) |
-| Stop file generator | SPEC-002 | In progress |
+| Stop file generator | SPEC-002 | Done ([PR #3](https://github.com/routingjesus/Team105/pull/3)) |
 | Wizard UI (Next.js) | SPEC-003 | Ready |
 
 Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
