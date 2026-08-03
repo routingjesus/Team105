@@ -9,6 +9,9 @@ tracking_id: "Team-105-Dataset-Creation-Wizard-PRD"
 depends_on:
   - "SPEC-001"
 
+branching:
+  base_branch: "SPEC-001-truck-file-generator"
+
 coordination:
   blast_radius: isolated
   parallel_safe: false
