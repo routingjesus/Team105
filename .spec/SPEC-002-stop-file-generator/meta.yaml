@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: ready
+status: done
 created: 2026-07-27
 updated: 2026-08-03
 
@@ -9,10 +9,124 @@ tracking_id: "Team-105-Dataset-Creation-Wizard-PRD"
 depends_on:
   - "SPEC-001"
 
-branching:
-  base_branch: "SPEC-001-truck-file-generator"
-
 coordination:
   blast_radius: isolated
   parallel_safe: false
 ready_sha: "0c6832da8b0fcebd97817069abb12e8396a71ca9"
+
+completion:
+  date: 2026-08-03
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/3"
+  acceptance_criteria_waived:
+    - acceptance_criteria: "Generated stop and truck files together import into DirectRoute 26.x without exceptions (manual smoke test)"
+      rationale: >
+        Spec defines this as a manual smoke test outside CI; DirectRoute is
+        not available to the agent. Same waiver pattern as SPEC-001's AC7.
+        Pending human verification via POST /api/stops/download +
+        POST /api/trucks/download + combined DirectRoute import.
+
+learnings:
+  - type: constraint_found
+    summary: "python-calamine needs a Rust toolchain; xlrd is the pragmatic .xls reader on this environment"
+    context: >
+      python-calamine has no prebuilt wheel for this Python/platform, so pip
+      falls back to building it from source via maturin/cargo, which needs
+      crates.io directly. UV_SYSTEM_CERTS covers uv's own HTTPS client but not
+      cargo's, so the build fails under the same corporate TLS interception
+      documented for uv itself. Switched to xlrd 2.0.2 (pure Python, no
+      compiled dependency) for reading the legacy .xls location database and
+      golden templates. Revisit python-calamine only once a prebuilt wheel
+      exists for the target platform or the network constraint is lifted.
+    tags: [environment, windows, dependencies, xls, tls]
+    date: 2026-08-03
+  - type: decision_made
+    summary: "Golden stop-file templates corrected SPEC-002's pre-implementation research on column counts"
+    context: >
+      Pre-implementation research (from spec.md) said the customer-facing
+      template had 69 columns and the analyst variant had 70; programmatic
+      inspection of the actual owner-supplied .xls files found the reverse
+      (customer-facing = 70, analyst = 69, analyst lacks
+      MinDaysBetweenDeliveries/MaxDaysBetweenDeliveries but has
+      LocationTimeZone). Implementation uses the verified ground truth
+      (backend/generators/stop.py COLUMN_ORDER, cross-checked against the
+      template in a test), not the spec's prose description. Lesson: when a
+      spec's research describes a file's structure from a prior inspection,
+      re-verify programmatically against the actual bundled artifact before
+      coding the column order into the generator.
+    tags: [directroute-file-formats, verification]
+    date: 2026-08-03
+  - type: decision_made
+    summary: "Volume columns in the stop file are dynamic (named after user answers), not hardcoded Cube/Weight slots"
+    context: >
+      The golden template's field description for its Cube/Weight columns
+      says a volume "can be named anything," mirroring SPEC-001's dynamic
+      volume-column convention. Implementation collapses the two generic
+      template slots into one expandable segment driven by
+      StopConfig.volume_answers, consistent across both generators rather
+      than hardcoding two fixed volume columns.
+    tags: [api-contracts, directroute-file-formats]
+    date: 2026-08-03
+  - type: gap_found
+    summary: "DepotSummary (truck_config.py) has no ASCII validators, unlike its sibling DepotSpec"
+    context: >
+      Self-review's security-surface lane found that StopConfig.depots
+      (typed as DepotSummary, imported from backend/schemas/truck_config.py)
+      can carry non-ASCII/tab/newline text, unlike DepotSpec which validates
+      via _validate_ascii. Impact is low in practice -- depot fields are only
+      used for location_db address matching and error messages, never
+      written to the output file (stop rows are ASCII-validated separately
+      via backend/generators/stop.py's _clean function). Not fixed here:
+      truck_config.py is SPEC-001's file and out of SPEC-002's "Files NOT to
+      modify" boundary. Flagging for whoever next touches truck_config.py.
+    tags: [gap, api-contracts, validation]
+    date: 2026-08-03
+  - type: constraint_found
+    summary: "Self-review caught a real AC6 gap: schema-level validation exists but wasn't wired into StopConfig"
+    context: >
+      spec-compliance and approach-quality review lanes found: (1) a
+      standalone validate_time_window() function existed and was unit-tested
+      but never called from the fixed-mode generation path, so an inverted
+      or FixedTime-narrower fixed window could reach output unvalidated
+      (blocking); (2) Open1/Close1 rendered "0" instead of "0000" for a
+      legitimate midnight value because `if open1 else "0"` treats int 0 as
+      falsy (blocking). Both fixed: validate_time_window moved to
+      stop_config.py and wired into a StopConfig model_validator so invalid
+      fixed windows are rejected at request validation (422), with a runtime
+      assert as a second guard in build_time_window's randomized path;
+      Open1/Close1 render unconditionally with zfill(4). Lesson: a validator
+      function existing and being unit-tested is not evidence it's actually
+      enforced on the request path -- self-review's AC-by-AC code trace
+      caught what test-suite-passing alone did not.
+    tags: [self-review, validation, bug-fix]
+    date: 2026-08-03
+  - type: decision_made
+    summary: "Production location_db bundled with real geography but synthetic names, not left as an open item"
+    context: >
+      The owner supplied the real master location database (a 2015
+      "Customer Sites" export, ~21.9k real store rows with proprietary
+      names/brands/store numbers) after initial implementation. Per
+      explicit owner instruction, addresses/city/state/zip/lat-long were
+      kept as-is (useful real geography, not considered sensitive here)
+      but customer/store names and the real Store # (ID1) were replaced
+      with deterministic synthetic placeholders
+      (backend/data/prepare_location_db.py) before bundling as
+      backend/data/location_db.xlsx -- preserving SPEC-002's "synthetic,
+      non-proprietary" output goal without discarding real-world geographic
+      realism. The ID1 scramble was added after a security-surface
+      self-review lane caught that a real Store # next to a real address
+      is a workable re-identification key even with the Name field
+      scrambled (owner confirmed: "id1 should already be generic").
+      Contact/Phone/ID3 were verified programmatically as 0 non-null of
+      21,870 rows in the actual committed file -- not just assumed blank.
+      Verified against the actual bundled file: performance holds well
+      inside the 3-second NFR budget (~0.1s for 50 stops from all 21,870
+      candidate rows, more than double the spec's assumed 10k scale).
+      Lesson: when a spec calls a bundled data file an open item and the
+      owner later supplies real source data, confirm explicitly which
+      *columns* are safe to ship, not just the columns the owner
+      spontaneously mentioned -- a security review lane caught a
+      re-identification field (Store #) the initial scrambling pass
+      missed.
+    tags: [directroute-file-formats, data-governance, performance, self-review]
+    date: 2026-08-03
