@@ -1,0 +1,14 @@
+entries:
+  - type: constraint_found
+    summary: "Bootcamp Windows hosts need uv via winget and system TLS certs"
+    context: >
+      Team105 bootcamp Windows machines ship no Python toolchain — python/py
+      resolve to the Microsoft Store stub. Install uv with
+      `winget install astral-sh.uv`, then create the venv with
+      `uv venv --python 3.12`. Corporate TLS interception breaks uv's
+      downloads (invalid peer certificate: UnknownIssuer) unless
+      UV_SYSTEM_CERTS=true is set (UV_NATIVE_TLS is deprecated). Applies to
+      any future Python spec executed on these hosts.
+    tags: [environment, windows, uv, tls, python]
+    date: 2026-07-30
+    source_spec: SPEC-001

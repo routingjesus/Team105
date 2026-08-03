@@ -1,0 +1,28 @@
+entries:
+  - type: assumption_invalidated
+    summary: "EDate/LDate in .TRUCK files are dispatch-day offsets, not text dates"
+    context: >
+      The DirectRoute truck-file field reference (Notion: "DirectRoute: the
+      Truck File") documents EDate/LDate as day offsets where 1 = dispatch
+      date. SPEC-001's research gate had assumed VBA DateSerial text
+      representations would need replicating; the field reference overruled
+      that — backend/generators/truck.py emits plain integers (EDate = LDate
+      = dispatch-day index). When porting macro fields, check the DirectRoute
+      field reference before assuming Excel-side representations carry over.
+    tags: [directroute, truck-file, file-format, edate-ldate]
+    date: 2026-07-30
+    source_spec: SPEC-001
+
+  - type: decision_made
+    summary: "Dynamic volume capacity columns append after the 76 base .TRUCK columns"
+    context: >
+      User-named volume columns (e.g. Cube, Weight) append after the macro's
+      final base column (Dash Repeater), preserving exact 76-column macro
+      parity for volume-less requests. Volumes are optional in the API schema
+      even though the wizard UI requires at least one. The ordered
+      column-definition table in backend/generators/truck.py makes column
+      extensions a data change, not an emitter fork — follow that pattern for
+      any future .TRUCK column additions.
+    tags: [directroute, truck-file, file-format, volumes]
+    date: 2026-07-30
+    source_spec: SPEC-001
