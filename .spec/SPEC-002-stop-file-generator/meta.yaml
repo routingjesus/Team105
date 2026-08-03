@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: in_progress
+status: done
 created: 2026-07-27
 updated: 2026-08-03
 
@@ -13,3 +13,69 @@ coordination:
   blast_radius: isolated
   parallel_safe: false
 ready_sha: "0c6832da8b0fcebd97817069abb12e8396a71ca9"
+
+completion:
+  date: 2026-08-03
+  pull_requests: []
+  acceptance_criteria_waived:
+    - acceptance_criteria: "Generated stop and truck files together import into DirectRoute 26.x without exceptions (manual smoke test)"
+      rationale: >
+        Spec defines this as a manual smoke test outside CI; DirectRoute is
+        not available to the agent. Same waiver pattern as SPEC-001's AC7.
+        Pending human verification via POST /api/stops/download +
+        POST /api/trucks/download + combined DirectRoute import.
+
+learnings:
+  - type: constraint_found
+    summary: "python-calamine needs a Rust toolchain; xlrd is the pragmatic .xls reader on this environment"
+    context: >
+      python-calamine has no prebuilt wheel for this Python/platform, so pip
+      falls back to building it from source via maturin/cargo, which needs
+      crates.io directly. UV_SYSTEM_CERTS covers uv's own HTTPS client but not
+      cargo's, so the build fails under the same corporate TLS interception
+      documented for uv itself. Switched to xlrd 2.0.2 (pure Python, no
+      compiled dependency) for reading the legacy .xls location database and
+      golden templates. Revisit python-calamine only once a prebuilt wheel
+      exists for the target platform or the network constraint is lifted.
+    tags: [environment, windows, dependencies, xls, tls]
+    date: 2026-08-03
+  - type: decision_made
+    summary: "Golden stop-file templates corrected SPEC-002's pre-implementation research on column counts"
+    context: >
+      Pre-implementation research (from spec.md) said the customer-facing
+      template had 69 columns and the analyst variant had 70; programmatic
+      inspection of the actual owner-supplied .xls files found the reverse
+      (customer-facing = 70, analyst = 69, analyst lacks
+      MinDaysBetweenDeliveries/MaxDaysBetweenDeliveries but has
+      LocationTimeZone). Implementation uses the verified ground truth
+      (backend/generators/stop.py COLUMN_ORDER, cross-checked against the
+      template in a test), not the spec's prose description. Lesson: when a
+      spec's research describes a file's structure from a prior inspection,
+      re-verify programmatically against the actual bundled artifact before
+      coding the column order into the generator.
+    tags: [directroute-file-formats, verification]
+    date: 2026-08-03
+  - type: decision_made
+    summary: "Volume columns in the stop file are dynamic (named after user answers), not hardcoded Cube/Weight slots"
+    context: >
+      The golden template's field description for its Cube/Weight columns
+      says a volume "can be named anything," mirroring SPEC-001's dynamic
+      volume-column convention. Implementation collapses the two generic
+      template slots into one expandable segment driven by
+      StopConfig.volume_answers, consistent across both generators rather
+      than hardcoding two fixed volume columns.
+    tags: [api-contracts, directroute-file-formats]
+    date: 2026-08-03
+  - type: gap_found
+    summary: "backend/data/location_db.xls (production master file) is still owner-supplied, not yet bundled"
+    context: >
+      SPEC-002's implementation guidance flagged this as an open item before
+      coding began. Confirmed still open at completion: /api/stops/generate
+      and /api/stops/download return 503 until the file is added, and two
+      integration tests in tests/test_stop_api.py skip until then. All unit
+      tests instead exercise a synthetic sample database
+      (fixtures/stop/sample_location_db.xlsx, regenerable via
+      fixtures/stop/make_sample_location_db.py) documented in
+      fixtures/stop/README.md.
+    tags: [gap, directroute-file-formats, deployment]
+    date: 2026-08-03
