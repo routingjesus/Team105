@@ -129,7 +129,7 @@ export function Review({ onNavigate, onGenerate, generating, rootError }: Review
           {generating ? "Generating…" : "Generate dataset"}
         </button>
       </div>
-      <p className="assertive" role="status" aria-live="polite">
+      <p className="status-message" role="status" aria-live="polite">
         {generating ? "Generating your dataset. This can take a few seconds." : ""}
       </p>
     </section>

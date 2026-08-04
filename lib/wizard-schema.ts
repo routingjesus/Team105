@@ -209,6 +209,15 @@ export interface VolumeAnswerFormValue {
   value: number;
 }
 
+/**
+ * Form value shape. Hand-maintained rather than `z.infer<typeof wizardSchema>`
+ * on purpose: `z.coerce`/`z.preprocess` give the schema awkward input-vs-output
+ * types (and optional-via-preprocess fields infer as required keys with
+ * `| undefined` rather than optional keys), which fights RHF's defaultValues.
+ * The step-field arrays below are kept in lockstep with these keys by the
+ * compile-time coverage guard at the end of this file, so a field added here
+ * without updating a step array (or vice-versa) is a type error.
+ */
 export interface WizardFormValues {
   // Route (truck) step
   weeks: number;
@@ -333,3 +342,13 @@ export const stopStepFields = [
   "aliasId3",
   "aliasAddress2",
 ] as const;
+
+// Compile-time drift guard: the two step arrays must together name every key of
+// WizardFormValues exactly (no stray names, no missing keys). If the schema and
+// interface gain a field but a step array doesn't, or a name is mistyped, one of
+// these assignments stops compiling — keeping per-step trigger()/routing honest.
+type StepFieldName = (typeof truckStepFields)[number] | (typeof stopStepFields)[number];
+const _stepFieldsAreKeys: StepFieldName extends keyof WizardFormValues ? true : never = true;
+const _keysAreStepFields: keyof WizardFormValues extends StepFieldName ? true : never = true;
+void _stepFieldsAreKeys;
+void _keysAreStepFields;
