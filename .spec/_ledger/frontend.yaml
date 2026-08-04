@@ -17,3 +17,22 @@ entries:
     tags: [frontend, eslint, next, tooling]
     date: 2026-08-04
     source_spec: SPEC-003
+  - type: decision_made
+    summary: "Force Next.js same-origin proxy mode with an empty .env.local value; an empty env var can't be injected through the Windows process environment"
+    context: >
+      To make the wizard call the API same-origin (relative /api/... via a
+      next.config `rewrites()`, no CORS), the client base URL must resolve to
+      "". On Windows an empty env var can't be handed to the child build: both
+      `$env:X=''` and [Environment]::SetEnvironmentVariable('X','','Process')
+      DELETE the variable (the node child sees it absent), and a stale .env
+      (e.g. NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080) would then be baked
+      into the bundle, reintroducing CORS/tunnel-host bugs. Fix: write .env.local
+      (gitignored, higher precedence than .env in Next) with
+      `NEXT_PUBLIC_API_BASE_URL=`; @next/env resolves `KEY=` to a present empty
+      string that overrides .env. Client resolution must use `||`/trim, not `??`
+      (`??` treats "" as a set value). A fresh clone has no .env at all, so proxy
+      mode is the zero-config default. Reusable for any Next.js app that chooses
+      proxy-vs-direct API mode per machine.
+    tags: [frontend, next, env, dotenv, proxy]
+    date: 2026-08-04
+    source_spec: SPEC-004
