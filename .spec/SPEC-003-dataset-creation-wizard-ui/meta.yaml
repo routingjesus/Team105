@@ -62,7 +62,8 @@ learnings:
 
 completion:
   date: 2026-08-04
-  pull_requests: []
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/5"
   acceptance_criteria_waived:
     - acceptance_criteria: "Given the deployed bootcamp URL, when a reviewer walks through the wizard, then the full flow from kickoff to download completes in under 3 minutes for a demo scenario (2 depots, 2 weeks, ~20 stops)."
       rationale: >
