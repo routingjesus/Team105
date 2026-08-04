@@ -59,23 +59,74 @@ learnings:
       open question #1.
     tags: [frontend, api-contract, react-hook-form, zod]
     date: 2026-08-04
+  - type: constraint_found
+    summary: "Wizard <-> API needs CORS: the browser blocks cross-origin generate calls without it"
+    context: >
+      The wizard (localhost:3000) and the FastAPI backend (127.0.0.1:8000/8080)
+      are different origins, so the browser blocks the generate/download calls
+      until the API returns CORS headers. SPEC-001/002 shipped the API with no
+      CORS middleware, so the wizard's calls failed in the browser even though
+      curl and the pytest TestClient (neither origin-checked) worked fine. Fixed
+      by adding fastapi.middleware.cors.CORSMiddleware allowing the local dev
+      origins by default, overridable via a comma-separated WIZARD_ALLOWED_ORIGINS
+      env var for a deployed UI. Any browser client of this API needs its origin
+      allowed; a green backend test suite does not prove the browser path works.
+    tags: [backend, fastapi, cors, frontend-integration]
+    date: 2026-08-04
+  - type: constraint_found
+    summary: "Legacy location_db stores whitespace-padded fixed-width text; normalize on load or matching fails"
+    context: >
+      backend/data/location_db.xlsx stores fixed-width, whitespace-padded values
+      (e.g. 'VA    ', 'CHESAPEAKE                '). resolve_depot_coordinates and
+      filter_by_state compared those padded values against normal (trimmed) user
+      input, so every realistic depot address/city/state/zip and every state
+      filter failed to match -- blocking all wizard stop generation -- even though
+      SPEC-002's unit tests passed, because their sample fixture DB wasn't padded.
+      Fixed by stripping string columns in load_location_db; emitted stop rows
+      were already stripped downstream (generators.stop._clean) so output is
+      unchanged. Lesson: when matching user input against legacy Excel exports,
+      normalize whitespace on load and test against the REAL data file, not just
+      hand-built fixtures.
+    tags: [backend, location-db, data-hygiene, stop-file]
+    date: 2026-08-04
+  - type: constraint_found
+    summary: "Local two-terminal run on bootcamp Windows: stale PATH, held port 8000, PS execution policy"
+    context: >
+      Walking a user through a local run surfaced several Windows gotchas worth
+      reusing: (1) winget installs a tool but, without Developer Mode/admin,
+      creates no shim in WinGet\Links, so uv/npm aren't on PATH -- persist the
+      real tool dir to the USER PATH via [Environment]::SetEnvironmentVariable
+      (not setx, which truncates). (2) Cursor's integrated terminal inherits the
+      editor's PATH from launch time, so PATH fixes need a full editor restart or
+      a session `$env:Path` prepend, not just a new terminal tab. (3) Port 8000
+      was held/reserved (bind failed WinError 10013/10048) -- probe bindable
+      ports, run uvicorn with --port 8080, and set NEXT_PUBLIC_API_BASE_URL to
+      match. (4) PowerShell execution policy blocks npm.ps1; use `npm.cmd` or set
+      CurrentUser RemoteSigned. Running the API via `.venv\Scripts\python.exe -m
+      uvicorn` avoids needing uv on PATH at all.
+    tags: [environment, windows, path, ports, powershell]
+    date: 2026-08-04
 
 completion:
   date: 2026-08-04
   pull_requests:
     - "https://github.com/routingjesus/Team105/pull/5"
+  acceptance_criteria_verified:
+    - acceptance_criteria: "Given generated files from the wizard, when imported into DirectRoute, then a valid solution is created without exceptions (end-to-end demo acceptance)."
+      verified_by: user
+      date: 2026-08-04
+      evidence: >
+        User ran the full stack locally (API on 127.0.0.1:8080, wizard on
+        localhost:3000), generated fleet.truck + stops.xlsx through the wizard for
+        the demo depot (1216 Greenbrier Parkway, Chesapeake, VA 23320; 2 weeks,
+        radius 50mi, 20 stops), and imported both into DirectRoute, which built a
+        valid solution without exceptions. Required today's CORS and location_db
+        whitespace-normalization fixes to work end-to-end.
   acceptance_criteria_waived:
     - acceptance_criteria: "Given the deployed bootcamp URL, when a reviewer walks through the wizard, then the full flow from kickoff to download completes in under 3 minutes for a demo scenario (2 depots, 2 weeks, ~20 stops)."
       rationale: >
-        Requires a deployed URL and human timing; no deployment target is
-        available to the agent. The wizard is built for this (four short steps,
-        defaults matching the demo scenario: 2 weeks, ~20 stops) and passes
-        build/tests/lint. User approved completing with this AC pending manual
-        verification on a deployed instance.
-    - acceptance_criteria: "Given generated files from the wizard, when imported into DirectRoute, then a valid solution is created without exceptions (end-to-end demo acceptance)."
-      rationale: >
-        DirectRoute is not available to the agent (same waiver pattern as
-        SPEC-001 AC7 and SPEC-002). The wizard consumes the real SPEC-001/002
-        API contract and delivers the .TRUCK + .XLSX outputs; end-to-end import
-        acceptance is pending human verification via the deployed wizard +
-        DirectRoute import.
+        Pending only a deployed URL -- no hosted deployment target was set up.
+        The substance is demonstrated: the local end-to-end run completed the
+        four-step flow well under 3 minutes for the demo scenario (truck generate
+        ~0.1s, stop generate ~3.3s). Re-verify reviewer timing on a deployed
+        instance if/when one exists.

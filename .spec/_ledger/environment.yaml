@@ -31,3 +31,24 @@ entries:
     tags: [environment, windows, node, npm, tls]
     date: 2026-08-04
     source_spec: SPEC-003
+  - type: constraint_found
+    summary: "Running the full stack locally on bootcamp Windows: stale PATH, held port 8000, PS execution policy"
+    context: >
+      Walking a user through a local two-terminal run (FastAPI + Next.js)
+      surfaced reusable Windows gotchas: (1) winget installs a tool but, without
+      Developer Mode/admin, creates no shim in %LOCALAPPDATA%\Microsoft\WinGet\
+      Links, so uv/npm aren't on PATH — persist the real tool/package dir to the
+      USER PATH via [Environment]::SetEnvironmentVariable('Path',...,'User'), not
+      setx (which truncates long PATHs). (2) Cursor's integrated terminal
+      inherits the editor's environment from launch time, so a PATH change needs
+      a full editor restart or a per-session `$env:Path` prepend — a new terminal
+      tab alone won't see it. (3) Port 8000 was held/reserved (bind failed with
+      WinError 10013 'access forbidden' and 10048 'in use') even though nothing
+      showed as LISTENing — probe bindable ports, run uvicorn with --port 8080,
+      and set the frontend's NEXT_PUBLIC_API_BASE_URL to match. (4) PowerShell
+      execution policy blocks npm.ps1 ('running scripts is disabled') — use
+      `npm.cmd` or set CurrentUser RemoteSigned. (5) Running the API via
+      `.venv\Scripts\python.exe -m uvicorn` avoids needing uv on PATH at all.
+    tags: [environment, windows, path, ports, powershell]
+    date: 2026-08-04
+    source_spec: SPEC-003
