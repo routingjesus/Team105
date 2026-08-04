@@ -12,3 +12,22 @@ entries:
     tags: [environment, windows, uv, tls, python]
     date: 2026-07-30
     source_spec: SPEC-001
+  - type: constraint_found
+    summary: "Bootcamp Windows hosts also lack a Node toolchain; install a user-local Node zip, not the winget MSI"
+    context: >
+      The JS counterpart to the uv finding above: node/npm/pnpm are all absent
+      on the Team105 bootcamp Windows hosts. `winget install OpenJS.NodeJS.LTS`
+      downloads fine but its MSI fails with exit code 1603 because it needs
+      interactive administrator elevation, which a non-interactive agent shell
+      cannot grant. The working, admin-free path: download the official
+      node-vXX-win-x64.zip with `Invoke-WebRequest` (PowerShell's schannel uses
+      the system certificate store, so it tolerates the same corporate TLS
+      interception that breaks uv/cargo), `Expand-Archive` it into a user dir
+      (e.g. C:\Users\<user>\tools\), then prepend that dir to `$env:Path` for
+      the session. npm then reaches the registry normally. npm's allow-scripts
+      also blocks unrs-resolver's postinstall (a native binding used only by
+      eslint-plugin-import's resolver) — harmless for build/test. Applies to any
+      future Node/frontend spec on these hosts.
+    tags: [environment, windows, node, npm, tls]
+    date: 2026-08-04
+    source_spec: SPEC-003
