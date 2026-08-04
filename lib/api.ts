@@ -91,9 +91,7 @@ export function apiLocToFormPath(loc: (string | number)[]): string | null {
   if (!mappedHead) return null;
 
   // Arrays (depots/volumes/volume_answers) keep their index + subfield.
-  const tail = rest
-    .map((p) => (typeof p === "number" ? `.${p}` : `.${p}`))
-    .join("");
+  const tail = rest.map((p) => `.${p}`).join("");
   return `${mappedHead}${tail}`;
 }
 
@@ -200,4 +198,48 @@ export function downloadBlob(blob: Blob, filename: string): void {
 /** Convenience: decode base64 content and download it in one call. */
 export function downloadBase64(base64: string, filename: string, mimeType: string): void {
   downloadBlob(base64ToBlob(base64, mimeType), filename);
+}
+
+/** Extract a filename from a `Content-Disposition` header, if present. */
+export function parseContentDispositionFilename(header: string | null): string | null {
+  if (!header) return null;
+  const utf8 = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8) return decodeURIComponent(utf8[1]);
+  const plain = header.match(/filename="?([^";]+)"?/i);
+  return plain ? plain[1] : null;
+}
+
+/**
+ * Alternative to the base64-in-JSON path: POST to a `.../download` endpoint and
+ * stream the raw file bytes to a download. Guards on `response.ok` and reuses
+ * the same 422 → field-error mapping as the JSON endpoints.
+ */
+export async function downloadFile(
+  path: string,
+  config: unknown,
+  fallbackName: string,
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      [],
+      `Could not reach the generation service at ${API_BASE_URL}. Is the backend running?`,
+    );
+  }
+
+  if (!response.ok) {
+    throw await parseErrorBody(response);
+  }
+
+  const blob = await response.blob();
+  const filename =
+    parseContentDispositionFilename(response.headers.get("Content-Disposition")) ?? fallbackName;
+  downloadBlob(blob, filename);
 }

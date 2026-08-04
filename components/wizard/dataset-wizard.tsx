@@ -31,6 +31,12 @@ interface GenerationResult {
   stop: StopGenerationResponse;
 }
 
+/** Earliest wizard step (0 = route, 1 = stop) that owns any of the given field paths. */
+function firstOwnerStep(paths: string[]): number | null {
+  const owners = paths.map(stepForFormPath).filter((s): s is 0 | 1 => s !== null);
+  return owners.length > 0 ? Math.min(...owners) : null;
+}
+
 export function DatasetWizard() {
   const methods = useForm<WizardFormValues>({
     resolver: zodResolver(wizardSchema) as unknown as Resolver<WizardFormValues>,
@@ -113,12 +119,8 @@ export function DatasetWizard() {
       if (error.rootMessage) {
         methods.setError("root.serverError", { type: "server", message: error.rootMessage });
       }
-      const ownerSteps = error.fieldErrors
-        .map((fe) => stepForFormPath(fe.path))
-        .filter((s): s is 0 | 1 => s !== null);
-      if (ownerSteps.length > 0) {
-        setStep(Math.min(...ownerSteps));
-      }
+      const owner = firstOwnerStep(error.fieldErrors.map((fe) => fe.path));
+      if (owner !== null) setStep(owner);
     },
     [methods],
   );
@@ -147,10 +149,8 @@ export function DatasetWizard() {
       }
     },
     (errors) => {
-      const owner = Object.keys(errors)
-        .map((key) => stepForFormPath(key))
-        .filter((s): s is 0 | 1 => s !== null);
-      if (owner.length > 0) setStep(Math.min(...owner));
+      const owner = firstOwnerStep(Object.keys(errors));
+      if (owner !== null) setStep(owner);
     },
   );
 

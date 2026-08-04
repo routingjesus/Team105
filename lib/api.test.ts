@@ -4,8 +4,10 @@ import {
   apiLocToFormPath,
   base64ToBlob,
   downloadBlob,
+  downloadFile,
   generateStops,
   generateTruck,
+  parseContentDispositionFilename,
   stepForFormPath,
 } from "./api";
 import type { StopConfig, TruckConfig } from "./wizard-types";
@@ -125,5 +127,58 @@ describe("downloadBlob", () => {
     expect(createSpy).toHaveBeenCalledTimes(1);
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(revokeSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("parseContentDispositionFilename", () => {
+  it("reads a plain filename", () => {
+    expect(parseContentDispositionFilename('attachment; filename="fleet.truck"')).toBe(
+      "fleet.truck",
+    );
+  });
+  it("reads an RFC 5987 UTF-8 filename", () => {
+    expect(parseContentDispositionFilename("attachment; filename*=UTF-8''stops%20.xlsx")).toBe(
+      "stops .xlsx",
+    );
+  });
+  it("returns null when absent", () => {
+    expect(parseContentDispositionFilename(null)).toBeNull();
+  });
+});
+
+describe("downloadFile (raw-bytes path)", () => {
+  it("streams raw bytes from a download endpoint using the header filename", async () => {
+    const blob = new Blob(["rawbytes"], { type: "text/tab-separated-values" });
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'attachment; filename="fleet.truck"' },
+      blob: async () => blob,
+    })) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:mock"), revokeObjectURL: vi.fn() });
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+
+    await downloadFile("/api/trucks/download", {}, "fallback.truck");
+
+    const [url, init] = (fetchMock as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(String(url)).toMatch(/\/api\/trucks\/download$/);
+    expect((init as RequestInit).method).toBe("POST");
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("maps a 422 from the download endpoint to an ApiError", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 422,
+      json: async () => ({ detail: "Depot could not be geocoded" }),
+    })) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(downloadFile("/api/stops/download", {}, "fallback.xlsx")).rejects.toBeInstanceOf(
+      ApiError,
+    );
   });
 });
