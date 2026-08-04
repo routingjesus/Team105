@@ -8,6 +8,7 @@ import {
   generateStops,
   generateTruck,
   parseContentDispositionFilename,
+  resolveApiBaseUrl,
   stepForFormPath,
 } from "./api";
 import type { StopConfig, TruckConfig } from "./wizard-types";
@@ -19,6 +20,35 @@ afterEach(() => {
 
 const truckConfig = {} as TruckConfig;
 const stopConfig = {} as StopConfig;
+
+describe("resolveApiBaseUrl", () => {
+  it("yields an empty (relative) base when unset, empty, or whitespace", () => {
+    expect(resolveApiBaseUrl(undefined)).toBe("");
+    expect(resolveApiBaseUrl("")).toBe("");
+    expect(resolveApiBaseUrl("   ")).toBe("");
+  });
+
+  it("keeps an explicit absolute base and strips its trailing slash", () => {
+    expect(resolveApiBaseUrl("http://127.0.0.1:8000")).toBe("http://127.0.0.1:8000");
+    expect(resolveApiBaseUrl("http://127.0.0.1:8000/")).toBe("http://127.0.0.1:8000");
+  });
+});
+
+describe("generateTruck (relative-base proxy mode)", () => {
+  it("fetches the bare relative path when NEXT_PUBLIC_API_BASE_URL is empty/unset", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ filename: "fleet.truck", truck_file_base64: "AAAA" }),
+    })) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+
+    await generateTruck({} as TruckConfig);
+
+    const [url] = (fetchMock as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(String(url)).toBe("/api/trucks/generate");
+  });
+});
 
 describe("apiLocToFormPath", () => {
   it("maps top-level and nested backend fields to form paths", () => {

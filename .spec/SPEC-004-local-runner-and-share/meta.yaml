@@ -1,0 +1,105 @@
+schema_version: "2026.04"
+status: done
+created: 2026-08-04
+updated: 2026-08-04
+
+# Origin (optional — informational, not a dependency)
+# source: "https://..."                 # Shareable origin breadcrumb, never a local filesystem path like /home/... or /Users/...
+# tracking_id: ""                       # External reference (Notion task, Jira ticket, etc.)
+
+# Dependencies (optional — advisory ordering, not execution blockers)
+# depends_on:
+#   - "SPEC-030"                        # Lightweight sequencing; upstream should usually be done first
+# blocked_by:
+#   - spec: "SPEC-030"
+#     until_status: "ready"            # required; ready | done
+
+# Coordination (optional — blast radius classification for parallel work)
+coordination:
+  blast_radius: isolated             # structural | isolated | mixed
+  parallel_safe: true                # true only when blast_radius is isolated; do not set independently
+
+# Branching (optional — non-default branch topology for stacked or integration workflows)
+# branching:
+#   base_branch: ""                    # Branch to fork from; defaults to repo default branch when absent
+#   target_branch: ""                  # PR base branch; defaults to repo default branch when absent
+
+# Freshness snapshot (populate when status reaches ready)
+# ready_sha: ""                         # Full git HEAD commit recorded at the ready transition; used for advisory staleness checks
+
+# Completion (populate when status reaches done)
+# completion:
+#   date: 2026-08-04
+#   acceptance_criteria_waived:         # Omit if none waived
+#     - acceptance_criteria: ""
+#       rationale: ""
+#   self_review_waived:                 # Omit if none waived; pr-review blocking findings the user accepted to proceed
+#     - finding: ""
+#       rationale: ""
+#   pull_requests:
+#     - "https://github.com/..."
+
+# Learnings (add during and after execution)
+# learnings:
+#   - type: pattern_discovered          # See references/spec-format.md for all types
+#     summary: ""
+#     context: ""
+#     tags: []
+#     date: 2026-08-04
+
+depends_on:
+  - "SPEC-003"
+ready_sha: "c61ad5d9892ef27657e1ce23e27caa8949518354"
+
+learnings:
+  - type: constraint_found
+    summary: "Windows port probing must be dual-stack: an IPv4-only TcpListener probe reports an IPv6 (::) Node/next listener as free, then `next start` dies with EADDRINUSE :::<port>"
+    context: >
+      The first launcher smoke test picked UI port 3000 as "free" (IPv4
+      loopback bind succeeded) even though an orphaned next server was already
+      bound to :::3000 (IPv6). next binds :: (IPv6 + IPv4-mapped), so it hit
+      EADDRINUSE and exited; the launcher's "one dies -> stop others" contract
+      then tore everything down. Fix: Test-PortFree binds
+      [TcpListener]::new([IPAddress]::IPv6Any, port) with Server.DualMode=$true
+      (mirrors Node) and also consults Get-NetTCPConnection -State Listen, which
+      sees listeners on any address family. This also catches reserved-but-not-
+      listening ports (the SPEC-003 port-8000 WinError 10013 case). Any Windows
+      launcher that probes ports for a Node server must probe dual-stack.
+    tags: [windows, ports, ipv6, powershell, launcher]
+    date: 2026-08-04
+  - type: decision_made
+    summary: "Force Next proxy mode via .env.local (empty NEXT_PUBLIC_API_BASE_URL), because an empty env var cannot be injected through the Windows process environment"
+    context: >
+      Proxy mode needs the client base URL empty so requests go to relative
+      /api/... paths. But both `$env:X=''` and
+      [Environment]::SetEnvironmentVariable('X','','Process') DELETE the
+      variable on Windows (verified: the child node process sees it absent), so
+      the launcher can't hand next build an empty-but-present value. Worse, a
+      stale .env (this repo shipped NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080)
+      would then be baked into the client bundle, breaking same-origin proxy and
+      re-introducing CORS/tunnel-host bugs. Fix: the launcher writes .env.local
+      (gitignored, higher precedence than .env in Next) with `NEXT_PUBLIC_API_BASE_URL=`.
+      Verified via @next/env loadEnvConfig that `KEY=` resolves to a present
+      empty string that overrides .env. resolveApiBaseUrl() maps ""/unset/
+      whitespace to "" (relative) and must use trim/|| rather than ?? (?? treats
+      "" as set). Fresh clones have no .env at all, so proxy mode is the default
+      with zero intervention.
+    tags: [nextjs, env, dotenv, proxy, windows]
+    date: 2026-08-04
+  - type: decision_made
+    summary: "uv is only needed to build the venv/install deps; the API runs via .venv python, so skip the uv install entirely when the venv already imports its deps"
+    context: >
+      The launcher runs the API as `.venv\Scripts\python.exe -m uvicorn`, which
+      needs no uv on PATH (per SPEC-003's environment learning). On the dev host
+      uv was absent from PATH but a working .venv existed; installing uv anyway
+      would be a needless (and TLS-fragile) network step. Ensure-Backend now
+      short-circuits when `.venv python -c "import uvicorn, fastapi"` succeeds,
+      and only resolves/installs uv when the venv is missing or incomplete.
+      -CheckOnly reflects this (reports "uv not needed" when the venv is ready).
+    tags: [uv, python, venv, bootstrap, launcher]
+    date: 2026-08-04
+
+completion:
+  date: 2026-08-04
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/6"

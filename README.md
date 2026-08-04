@@ -1,8 +1,8 @@
 # Team105 — Dataset Creation Wizard
 
 Generates synthetic, import-ready DirectRoute datasets: a tab-delimited
-`.TRUCK` truck file and (upcoming) an `.XLSX` stop file, driven by a guided
-wizard. Bootcamp capstone for AI Bootcamp Cohort 3, Team 105.
+`.TRUCK` truck file and an `.XLSX` stop file, driven by a guided wizard.
+Bootcamp capstone for AI Bootcamp Cohort 3, Team 105.
 
 ## Status
 
@@ -10,10 +10,87 @@ wizard. Bootcamp capstone for AI Bootcamp Cohort 3, Team 105.
 |-------|------|-------|
 | Truck file generator + API | SPEC-001 | Done ([PR #2](https://github.com/routingjesus/Team105/pull/2)) |
 | Stop file generator | SPEC-002 | Done ([PR #3](https://github.com/routingjesus/Team105/pull/3)) |
-| Wizard UI (Next.js) | SPEC-003 | In progress |
+| Wizard UI (Next.js) | SPEC-003 | Done ([PR #5](https://github.com/routingjesus/Team105/pull/5)) |
+| Local runner + shareable link | SPEC-004 | In review ([PR #6](https://github.com/routingjesus/Team105/pull/6)) |
 
 Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
 `spec-dashboard` skill) for current status.
+
+## Team setup (one command)
+
+On Windows, from a fresh clone, run the launcher from the repo root — it
+bootstraps every prerequisite (no admin required) and opens the wizard:
+
+```powershell
+.\run-local.cmd
+```
+
+Invoking PowerShell directly is equivalent:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-local.ps1
+```
+
+What it does, idempotently — detecting and reusing anything already installed:
+
+1. Installs Node (official `win-x64` zip to a user dir) and `uv` if missing.
+2. Creates the Python venv and installs `backend/requirements.txt`
+   (`UV_SYSTEM_CERTS=true` for corporate TLS interception) — skipped when the
+   venv already has its dependencies.
+3. Runs `npm install`.
+4. Probes bindable TCP ports (prefers API `8080` / UI `3000`), wires the
+   Next.js `/api/*` proxy to the chosen API port, starts both servers, waits
+   for the API to respond, then opens `http://localhost:<ui-port>/datasets/new`.
+
+Both servers shut down together on Ctrl+C (or if either process exits). The UI
+talks to the API through a same-origin proxy, so there is no CORS to configure
+and the same command works behind a tunnel or on a teammate's machine.
+
+### Flags
+
+| Flag | Effect |
+|------|--------|
+| `-CheckOnly` | Report readiness (tools, ports, execution policy) and exit; starts nothing. |
+| `-Dev` | Run the UI with `next dev` (hot reload) instead of a production build. |
+| `-Share` | Also start a Cloudflare quick tunnel to the UI and print a public `https://<random>.trycloudflare.com` URL. |
+
+```powershell
+.\run-local.cmd -Share       # demo to a reviewer on another machine
+.\run-local.cmd -CheckOnly   # just report what's installed and what's free
+```
+
+**`-Share` security:** the tunnel URL is ephemeral, world-reachable, and
+bypasses your firewall/NAT. Treat it as a secret, only the proxied frontend is
+exposed, and never demo with real PII or production credentials.
+
+### Known-good demo depot
+
+Depot addresses must resolve against the bundled location database, so for a
+demo use **1216 Greenbrier Parkway, Chesapeake, VA 23320** (~191 candidate
+stops within the default 50-mile radius). See the depot note under
+[Run the full stack manually](#run-the-full-stack-manually-fallback).
+
+### Manual fallbacks (locked-down machines)
+
+If a machine policy blocks a step, the launcher exits naming the blocked step
+and its fallback. Common cases:
+
+- **PATH not updated after an install:** a running shell does not inherit PATH
+  changes, and user-local installs may create no global shim without Developer
+  Mode/admin. The launcher prepends tool dirs in-session; if a manual command
+  still can't find a tool, open a new terminal (or restart Cursor) and re-run.
+- **Group-Policy execution policy:** the `.cmd` wrapper uses
+  `-ExecutionPolicy Bypass` and the launcher always calls `npm.cmd` (never the
+  blocked `npm.ps1`), but a GPO-enforced `Restricted`/`AllSigned` policy cannot
+  be bypassed — contact IT. `-CheckOnly` flags this.
+- **Reserved/held port:** port `8000` is often reserved on bootcamp images; the
+  launcher probes for a bindable port (dual-stack) automatically, so no action
+  is needed.
+- **Corporate TLS breaks `uv`/`pip`:** the launcher sets `UV_SYSTEM_CERTS=true`.
+  For manual installs, set it first: `$env:UV_SYSTEM_CERTS='true'`.
+
+Non-Windows machines are not covered by the launcher — use the manual steps
+below.
 
 ## Backend setup (Windows)
 
@@ -58,7 +135,7 @@ to the user.
 winget install OpenJS.NodeJS.LTS   # or unzip an official Node build to a user dir
 
 npm install
-copy .env.example .env             # points NEXT_PUBLIC_API_BASE_URL at the API
+copy .env.example .env             # proxy mode by default (NEXT_PUBLIC_API_BASE_URL left empty)
 npm run dev                        # wizard at http://localhost:3000/datasets/new
 ```
 
@@ -77,19 +154,25 @@ from each response, and offers one download button per file. Set
 `npm run build` time, so set it *before* building, not after. When the API is a
 different origin, add that origin to the backend's `WIZARD_ALLOWED_ORIGINS`.
 
-### Run the full stack locally
+### Run the full stack manually (fallback)
 
-Two processes, from the repo root (the wizard is a browser client of the API):
+Prefer `run-local.cmd` above. If you need to run the two processes by hand
+(non-Windows, debugging, or a policy blocked the launcher), start them from the
+repo root. Leaving `NEXT_PUBLIC_API_BASE_URL` empty keeps the UI in same-origin
+proxy mode; the proxy defaults to `http://127.0.0.1:8080`, so run the API there:
 
 ```powershell
-# Terminal 1 — API
-.venv\Scripts\python.exe -m uvicorn backend.main:app --reload
+# Terminal 1 — API on 8080 (avoids the often-reserved port 8000)
+.venv\Scripts\python.exe -m uvicorn backend.main:app --port 8080 --reload
 
-# Terminal 2 — wizard UI
+# Terminal 2 — wizard UI (proxy mode: relative /api -> 127.0.0.1:8080)
 npm install
-copy .env.example .env          # NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 npm run dev                     # http://localhost:3000/datasets/new
 ```
+
+To instead hit the API directly (no proxy), set
+`NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080` in `.env` *before* building —
+the backend already allows the `localhost:3000` origin via CORS.
 
 **Depot addresses must exist in the static location database.** Stop generation
 resolves each depot to coordinates by matching its address against

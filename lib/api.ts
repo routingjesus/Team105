@@ -8,9 +8,24 @@ import type {
 } from "./wizard-types";
 import { stopStepFields, truckStepFields } from "./wizard-schema";
 
-export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000"
-).replace(/\/$/, "");
+/**
+ * Resolve the base URL that `postJson`/`downloadFile` prepend to each `/api/...`
+ * path. An empty, unset, or whitespace-only `NEXT_PUBLIC_API_BASE_URL` yields
+ * `""`, so requests hit relative paths (e.g. `/api/trucks/generate`) and flow
+ * through the Next.js same-origin proxy — no host prefix, no CORS. An explicit
+ * absolute value targets that origin directly (existing behavior). The trailing
+ * slash is stripped so callers can safely concatenate a leading-slash path.
+ *
+ * Note: `||`, not `??` — `??` would treat an explicit empty string as a set
+ * value, but proxy mode needs empty/whitespace/unset to all collapse to `""`.
+ */
+export function resolveApiBaseUrl(
+  raw: string | undefined = process.env.NEXT_PUBLIC_API_BASE_URL,
+): string {
+  return (raw || "").trim().replace(/\/$/, "");
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export const TRUCK_MIME = "text/tab-separated-values";
 export const STOP_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
