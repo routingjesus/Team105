@@ -57,8 +57,11 @@ proxy:
   `-ExecutionPolicy Bypass` (sidesteps the `npm.ps1` policy error).
 - `next.config.ts` — add `rewrites()` targeting `API_PROXY_TARGET`
   (default `http://127.0.0.1:8080`).
-- `lib/api.ts` — use a **relative** `/api` base when `NEXT_PUBLIC_API_BASE_URL`
-  is empty (proxy mode); unchanged behavior when the var is set.
+- `lib/api.ts` — change the base-URL default. Today an unset
+  `NEXT_PUBLIC_API_BASE_URL` falls back to the absolute
+  `http://127.0.0.1:8000`; in proxy mode an unset/empty var must instead yield a
+  **relative** `/api` base so requests go same-origin through the Next rewrite.
+  Behavior is unchanged when the var is explicitly set (direct-to-API mode).
 - `.env.example` + README "Team setup" section — the one command, the known
   manual fallbacks, and the fresh-terminal note.
 
