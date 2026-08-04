@@ -1,7 +1,7 @@
 schema_version: "2026.04"
-status: draft
+status: ready
 created: 2026-07-27
-updated: 2026-07-27
+updated: 2026-08-04
 
 source: "https://app.notion.com/p/398c1b3dd256808f825ecc5d3eb11f01"
 tracking_id: "Team-105-Dataset-Creation-Wizard-PRD"
@@ -13,3 +13,4 @@ depends_on:
 coordination:
   blast_radius: structural
   parallel_safe: false
+ready_sha: "d28bce17c97ff949683c28cf0231eccbbbbe7d8e"
