@@ -35,6 +35,15 @@ def load_location_db(path: str | Path) -> pd.DataFrame:
     missing = [c for c in REQUIRED_LOCATION_DB_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(f"location_db at {path} is missing required column(s): {missing}")
+    # The legacy database stores fixed-width, whitespace-padded text (e.g.
+    # "VA    ", "CHESAPEAKE                "). Strip string columns on load so
+    # depot address / city / state / zip matching and state filtering work
+    # against normal, un-padded user input. Emitted stop rows are already
+    # stripped downstream (generators.stop._clean), so this changes matching
+    # only, not output content.
+    for column in df.columns:
+        if df[column].dtype == object:
+            df[column] = df[column].map(lambda v: v.strip() if isinstance(v, str) else v)
     return df
 
 

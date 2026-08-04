@@ -1,0 +1,156 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { DatasetWizard } from "./dataset-wizard";
+
+const truckResponse = {
+  truck_row_count: 70,
+  weeks: 2,
+  territory_count: 5,
+  depot_count: 1,
+  depots: [
+    { address: "1 Warehouse Way", city: "Salt Lake City", state: "UT", zip: "84101", truck_count: 5 },
+  ],
+  volume_names: [{ name: "Cases", capacity: 2000 }],
+  seed: 0,
+  filename: "fleet.truck",
+  truck_file_base64: "AAAA",
+};
+
+const stopResponse = {
+  candidate_count: 100,
+  selected_stop_count: 20,
+  output_row_count: 20,
+  seed: 0,
+  filename: "stops.xlsx",
+  stop_file_base64: "AAAA",
+};
+
+const okJson = (obj: unknown) => ({ ok: true, status: 200, json: async () => obj });
+
+let clickSpy: ReturnType<typeof vi.spyOn>;
+
+beforeEach(() => {
+  window.sessionStorage.clear();
+  vi.stubGlobal("URL", {
+    ...URL,
+    createObjectURL: vi.fn(() => "blob:mock"),
+    revokeObjectURL: vi.fn(),
+  });
+  clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+async function fillDepot(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText("Street address"), "1 Warehouse Way");
+  await user.type(screen.getByLabelText("City"), "Salt Lake City");
+  await user.type(screen.getByLabelText("State"), "UT");
+  await user.type(screen.getByLabelText("ZIP"), "84101");
+}
+
+describe("DatasetWizard", () => {
+  it("starts on route questions with no mention of file types (AC1)", () => {
+    render(<DatasetWizard />);
+    expect(screen.getByRole("heading", { name: "Route details" })).toBeInTheDocument();
+    expect(screen.queryByText(/truck file|stop file|\.truck|\.xlsx/i)).not.toBeInTheDocument();
+  });
+
+  it("blocks advancing when a required depot field is empty (AC-per-step)", async () => {
+    const user = userEvent.setup();
+    render(<DatasetWizard />);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findAllByText("Required")).not.toHaveLength(0);
+    expect(screen.getByRole("heading", { name: "Route details" })).toBeInTheDocument();
+  });
+
+  it("advances into stop questions without announcing a phase change (AC2)", async () => {
+    const user = userEvent.setup();
+    render(<DatasetWizard />);
+    await fillDepot(user);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByRole("heading", { name: "Stop details" })).toBeInTheDocument();
+  });
+
+  it("preserves answers when navigating back (state NFR)", async () => {
+    const user = userEvent.setup();
+    render(<DatasetWizard />);
+    await fillDepot(user);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Stop details" });
+
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    await screen.findByRole("heading", { name: "Route details" });
+
+    expect(screen.getByLabelText("Street address")).toHaveValue("1 Warehouse Way");
+  });
+
+  it("completes the flow and offers both downloads (AC3, AC4, AC6)", async () => {
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const u = String(url);
+      if (u.includes("/api/trucks/generate")) return okJson(truckResponse);
+      if (u.includes("/api/stops/generate")) return okJson(stopResponse);
+      throw new Error(`unexpected url ${u}`);
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const user = userEvent.setup();
+    render(<DatasetWizard />);
+    await fillDepot(user);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Stop details" });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    // Review step (AC3 preview summary).
+    await screen.findByRole("heading", { name: "Check your answers" });
+    expect(screen.getByText("Total trucks")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Generate dataset" }));
+
+    await screen.findByRole("heading", { name: "Your dataset is ready" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await user.click(screen.getByRole("button", { name: /Download truck file/ }));
+    await user.click(screen.getByRole("button", { name: /Download stop file/ }));
+    expect(clickSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("maps a backend 422 back onto the owning field and returns to its step (AC5)", async () => {
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const u = String(url);
+      if (u.includes("/api/trucks/generate")) {
+        return {
+          ok: false,
+          status: 422,
+          json: async () => ({
+            detail: [{ loc: ["body", "weeks"], msg: "must be > 0", type: "value_error" }],
+          }),
+        };
+      }
+      return okJson(stopResponse);
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const user = userEvent.setup();
+    render(<DatasetWizard />);
+    await fillDepot(user);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Stop details" });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Check your answers" });
+    await user.click(screen.getByRole("button", { name: "Generate dataset" }));
+
+    // Error returns to the route step and shows the server message on the field.
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Route details" })).toBeInTheDocument(),
+    );
+    expect(await screen.findByText("must be > 0")).toBeInTheDocument();
+    // Answers are preserved (no reset on failure).
+    expect(screen.getByLabelText("Street address")).toHaveValue("1 Warehouse Way");
+  });
+});

@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: ready
+status: done
 created: 2026-07-27
 updated: 2026-08-04
 
@@ -14,3 +14,119 @@ coordination:
   blast_radius: structural
   parallel_safe: false
 ready_sha: "d28bce17c97ff949683c28cf0231eccbbbbe7d8e"
+
+learnings:
+  - type: constraint_found
+    summary: "Bootcamp Windows hosts have no Node toolchain; winget MSI needs admin, user-local zip works"
+    context: >
+      Mirrors SPEC-001's uv finding for the JS side: node/npm/pnpm are all
+      absent on the bootcamp host. `winget install OpenJS.NodeJS.LTS` downloads
+      fine but the MSI fails with exit 1603 because it needs interactive admin
+      elevation, which the non-interactive agent shell can't grant. The working
+      path was to download the official node-vXX-win-x64.zip via
+      Invoke-WebRequest (system TLS store handles the corporate interception
+      that breaks uv/cargo) and extract to a user dir, then prepend it to PATH.
+      No admin required. Applies to any future Node/frontend spec on these hosts.
+    tags: [environment, windows, node, npm, tls]
+    date: 2026-08-04
+  - type: decision_made
+    summary: "eslint-config-next 16 + FlatCompat crashes under ESLint 9; use a direct flat config"
+    context: >
+      The create-next-app-style eslint.config.mjs (FlatCompat.extends
+      'next/core-web-vitals','next/typescript') throws 'Converting circular
+      structure to JSON' inside @eslint/eslintrc's config validator with
+      eslint-config-next 16.3.0 on ESLint 9.39. Replaced it with a direct flat
+      config wiring @typescript-eslint/parser + @next/eslint-plugin-next
+      (recommended + core-web-vitals rules) + eslint-plugin-react-hooks
+      recommended rules. Lints clean (one informational
+      react-hooks/incompatible-library warning about RHF's watch()). Also note:
+      npm blocked unrs-resolver's postinstall (allow-scripts), which only affects
+      eslint-plugin-import's resolver, not this config.
+    tags: [frontend, eslint, next, tooling]
+    date: 2026-08-04
+  - type: decision_made
+    summary: "Wizard form uses camelCase values + explicit builders that map to the snake_case API contract"
+    context: >
+      RHF/Zod form values are camelCase and UI-shaped (e.g. selectionMode,
+      states as a comma string, advanced toggles), while lib/wizard-types.ts
+      mirrors the backend Pydantic shapes field-for-field. lib/build-config.ts
+      (buildTruckConfig / buildStopConfig) bridges the two, and stop generation
+      derives depots/weeks/volumes from the truck generate response
+      (TruckGenerationResponse) so the two files stay contract-consistent. This
+      keeps the form ergonomic without redefining the contract. Confirmed the
+      inferred truck path is real: POST /api/trucks/generate + /download
+      (fleet.truck); stops are /api/stops/* (stops.xlsx) -- resolving the spec's
+      open question #1.
+    tags: [frontend, api-contract, react-hook-form, zod]
+    date: 2026-08-04
+  - type: constraint_found
+    summary: "Wizard <-> API needs CORS: the browser blocks cross-origin generate calls without it"
+    context: >
+      The wizard (localhost:3000) and the FastAPI backend (127.0.0.1:8000/8080)
+      are different origins, so the browser blocks the generate/download calls
+      until the API returns CORS headers. SPEC-001/002 shipped the API with no
+      CORS middleware, so the wizard's calls failed in the browser even though
+      curl and the pytest TestClient (neither origin-checked) worked fine. Fixed
+      by adding fastapi.middleware.cors.CORSMiddleware allowing the local dev
+      origins by default, overridable via a comma-separated WIZARD_ALLOWED_ORIGINS
+      env var for a deployed UI. Any browser client of this API needs its origin
+      allowed; a green backend test suite does not prove the browser path works.
+    tags: [backend, fastapi, cors, frontend-integration]
+    date: 2026-08-04
+  - type: constraint_found
+    summary: "Legacy location_db stores whitespace-padded fixed-width text; normalize on load or matching fails"
+    context: >
+      backend/data/location_db.xlsx stores fixed-width, whitespace-padded values
+      (e.g. 'VA    ', 'CHESAPEAKE                '). resolve_depot_coordinates and
+      filter_by_state compared those padded values against normal (trimmed) user
+      input, so every realistic depot address/city/state/zip and every state
+      filter failed to match -- blocking all wizard stop generation -- even though
+      SPEC-002's unit tests passed, because their sample fixture DB wasn't padded.
+      Fixed by stripping string columns in load_location_db; emitted stop rows
+      were already stripped downstream (generators.stop._clean) so output is
+      unchanged. Lesson: when matching user input against legacy Excel exports,
+      normalize whitespace on load and test against the REAL data file, not just
+      hand-built fixtures.
+    tags: [backend, location-db, data-hygiene, stop-file]
+    date: 2026-08-04
+  - type: constraint_found
+    summary: "Local two-terminal run on bootcamp Windows: stale PATH, held port 8000, PS execution policy"
+    context: >
+      Walking a user through a local run surfaced several Windows gotchas worth
+      reusing: (1) winget installs a tool but, without Developer Mode/admin,
+      creates no shim in WinGet\Links, so uv/npm aren't on PATH -- persist the
+      real tool dir to the USER PATH via [Environment]::SetEnvironmentVariable
+      (not setx, which truncates). (2) Cursor's integrated terminal inherits the
+      editor's PATH from launch time, so PATH fixes need a full editor restart or
+      a session `$env:Path` prepend, not just a new terminal tab. (3) Port 8000
+      was held/reserved (bind failed WinError 10013/10048) -- probe bindable
+      ports, run uvicorn with --port 8080, and set NEXT_PUBLIC_API_BASE_URL to
+      match. (4) PowerShell execution policy blocks npm.ps1; use `npm.cmd` or set
+      CurrentUser RemoteSigned. Running the API via `.venv\Scripts\python.exe -m
+      uvicorn` avoids needing uv on PATH at all.
+    tags: [environment, windows, path, ports, powershell]
+    date: 2026-08-04
+
+completion:
+  date: 2026-08-04
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/5"
+  acceptance_criteria_verified:
+    - acceptance_criteria: "Given generated files from the wizard, when imported into DirectRoute, then a valid solution is created without exceptions (end-to-end demo acceptance)."
+      verified_by: user
+      date: 2026-08-04
+      evidence: >
+        User ran the full stack locally (API on 127.0.0.1:8080, wizard on
+        localhost:3000), generated fleet.truck + stops.xlsx through the wizard for
+        the demo depot (1216 Greenbrier Parkway, Chesapeake, VA 23320; 2 weeks,
+        radius 50mi, 20 stops), and imported both into DirectRoute, which built a
+        valid solution without exceptions. Required today's CORS and location_db
+        whitespace-normalization fixes to work end-to-end.
+  acceptance_criteria_waived:
+    - acceptance_criteria: "Given the deployed bootcamp URL, when a reviewer walks through the wizard, then the full flow from kickoff to download completes in under 3 minutes for a demo scenario (2 depots, 2 weeks, ~20 stops)."
+      rationale: >
+        Pending only a deployed URL -- no hosted deployment target was set up.
+        The substance is demonstrated: the local end-to-end run completed the
+        four-step flow well under 3 minutes for the demo scenario (truck generate
+        ~0.1s, stop generate ~3.3s). Re-verify reviewer timing on a deployed
+        instance if/when one exists.

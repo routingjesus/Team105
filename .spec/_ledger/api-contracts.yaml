@@ -13,3 +13,19 @@ entries:
     tags: [api-contract, fastapi, file-delivery]
     date: 2026-07-30
     source_spec: SPEC-001
+
+  - type: constraint_found
+    summary: "The generation API must send CORS headers for any browser client (e.g. the wizard)"
+    context: >
+      The wizard UI runs on a different origin (localhost:3000) than the FastAPI
+      backend (127.0.0.1:8000/8080), so the browser blocks its generate/download
+      calls unless the API returns CORS headers. SPEC-001/002 shipped without
+      CORS, which passed every curl and pytest TestClient check (neither is
+      origin-checked) but broke the actual browser path. backend/main.py now adds
+      fastapi.middleware.cors.CORSMiddleware allowing the local dev origins by
+      default, overridable via a comma-separated WIZARD_ALLOWED_ORIGINS env var
+      for a deployed UI. Any new browser consumer of this API must have its origin
+      added; never treat a green backend suite as proof the browser flow works.
+    tags: [api-contract, fastapi, cors, frontend-integration]
+    date: 2026-08-04
+    source_spec: SPEC-003

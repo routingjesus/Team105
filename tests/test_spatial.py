@@ -118,3 +118,40 @@ def test_thin_to_target_is_deterministic_for_a_given_seed(location_db):
     first = thin_to_target(location_db, target_count=12, seed=99)
     second = thin_to_target(location_db, target_count=12, seed=99)
     assert sorted(first.index) == sorted(second.index)
+
+
+def test_load_location_db_strips_whitespace_padding(tmp_path):
+    # The real legacy database stores fixed-width, whitespace-padded text.
+    # The loader must normalize it so matching against un-padded user input
+    # works (regression: padded values broke both address/city/state/zip
+    # resolution and state filtering).
+    padded = pd.DataFrame(
+        {
+            "Name": ["Customer 1                "],
+            "Address": ["1216 GREENBRIER PARKWAY   "],
+            "City": ["CHESAPEAKE                "],
+            "State": ["VA    "],
+            "Zip": ["23320 "],
+            "Latitude": [36.7689],
+            "Longitude": [-76.2304],
+        }
+    )
+    db_path = tmp_path / "padded_location_db.xlsx"
+    padded.to_excel(db_path, index=False)
+
+    loaded = load_location_db(db_path)
+    assert loaded.loc[0, "State"] == "VA"
+    assert loaded.loc[0, "City"] == "CHESAPEAKE"
+    assert loaded.loc[0, "Address"] == "1216 GREENBRIER PARKWAY"
+    assert str(loaded.loc[0, "Zip"]).strip() == "23320"
+
+    # Un-padded, differently-cased user input now resolves.
+    depot = DepotSpec(
+        address="1216 Greenbrier Parkway", city="Chesapeake", state="VA", zip="23320", trucks=1
+    )
+    lat, lon = resolve_depot_coordinates(depot, loaded)
+    assert lat == pytest.approx(36.7689, abs=0.01)
+    assert lon == pytest.approx(-76.2304, abs=0.01)
+
+    # State filtering also works against the normalized value.
+    assert len(filter_by_state(loaded, ["va"])) == 1

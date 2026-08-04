@@ -2,7 +2,7 @@
 id: SPEC-003
 title: "Dataset Creation Wizard UI"
 category: feature
-owner: Tye Lofts
+owner: Tyler Corr
 authored_by: automated
 ---
 

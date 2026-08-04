@@ -8,9 +8,11 @@ Paired delivery shapes over the same request body, per generator:
 """
 
 import base64
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
 from backend.generators.stop import FrequencyConsistencyError, generate_stop_file, select_candidates
@@ -29,6 +31,27 @@ STOP_FILENAME = "stops.xlsx"
 LOCATION_DB_PATH = Path(__file__).parent / "data" / "location_db.xlsx"
 
 app = FastAPI(title="Team105 Dataset Creation Wizard API")
+
+# The wizard UI is a separate origin (e.g. http://localhost:3000) from this API
+# (http://127.0.0.1:8000), so the browser needs CORS headers to allow its
+# generate/download calls. Defaults cover the local dev ports; override with a
+# comma-separated WIZARD_ALLOWED_ORIGINS for a deployed UI origin.
+_DEFAULT_ALLOWED_ORIGINS = (
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+)
+_allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("WIZARD_ALLOWED_ORIGINS", ",".join(_DEFAULT_ALLOWED_ORIGINS)).split(",")
+    if origin.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_methods=["POST", "GET", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 @app.post("/api/trucks/generate", response_model=TruckGenerationResponse)

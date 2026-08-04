@@ -26,3 +26,21 @@ entries:
     tags: [directroute, truck-file, file-format, volumes]
     date: 2026-07-30
     source_spec: SPEC-001
+
+  - type: constraint_found
+    summary: "location_db.xlsx stores whitespace-padded fixed-width text; normalize on load before matching"
+    context: >
+      The static candidate database (backend/data/location_db.xlsx) is a legacy
+      fixed-width export whose cells are whitespace-padded (e.g. 'VA    ',
+      'CHESAPEAKE                '). Depot-coordinate resolution and state
+      filtering in backend/services/spatial.py compared these padded values
+      against normal trimmed user input, so realistic depot address/city/state/zip
+      and state filters matched nothing and stop generation failed for every
+      normal input. SPEC-002's unit tests missed it because their sample fixture
+      DB was clean. Fix: strip string columns in load_location_db (emitted stop
+      rows are already stripped by generators.stop._clean, so output is
+      unchanged). When matching against this DB — or any legacy Excel export —
+      normalize whitespace on load and always test against the real data file.
+    tags: [directroute, location-db, data-hygiene, stop-file]
+    date: 2026-08-04
+    source_spec: SPEC-003
