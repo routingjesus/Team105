@@ -11,7 +11,7 @@ Bootcamp capstone for AI Bootcamp Cohort 3, Team 105.
 | Truck file generator + API | SPEC-001 | Done ([PR #2](https://github.com/routingjesus/Team105/pull/2)) |
 | Stop file generator | SPEC-002 | Done ([PR #3](https://github.com/routingjesus/Team105/pull/3)) |
 | Wizard UI (Next.js) | SPEC-003 | Done ([PR #5](https://github.com/routingjesus/Team105/pull/5)) |
-| Local runner + shareable link | SPEC-004 | In progress |
+| Local runner + shareable link | SPEC-004 | In review ([PR #6](https://github.com/routingjesus/Team105/pull/6)) |
 
 Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
 `spec-dashboard` skill) for current status.
