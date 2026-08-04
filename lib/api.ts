@@ -16,13 +16,13 @@ import { stopStepFields, truckStepFields } from "./wizard-schema";
  * absolute value targets that origin directly (existing behavior). The trailing
  * slash is stripped so callers can safely concatenate a leading-slash path.
  *
- * Note: `??` is deliberately avoided — it treats an explicit empty string as a
- * set value, which is exactly the proxy-mode case we must map to `""`.
+ * Note: `||`, not `??` — `??` would treat an explicit empty string as a set
+ * value, but proxy mode needs empty/whitespace/unset to all collapse to `""`.
  */
 export function resolveApiBaseUrl(
   raw: string | undefined = process.env.NEXT_PUBLIC_API_BASE_URL,
 ): string {
-  return (raw ?? "").trim().replace(/\/$/, "");
+  return (raw || "").trim().replace(/\/$/, "");
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
