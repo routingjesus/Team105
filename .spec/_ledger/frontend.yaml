@@ -1,0 +1,19 @@
+entries:
+  - type: decision_made
+    summary: "eslint-config-next 16 + FlatCompat crashes under ESLint 9; use a direct flat config"
+    context: >
+      The create-next-app-style eslint.config.mjs (FlatCompat.extends
+      'next/core-web-vitals','next/typescript') throws 'Converting circular
+      structure to JSON' inside @eslint/eslintrc's config validator when paired
+      with eslint-config-next 16.3.0 on ESLint 9.39. The working configuration
+      skips FlatCompat entirely and wires the flat config directly:
+      @typescript-eslint/parser (with parserOptions.ecmaFeatures.jsx) plus
+      @next/eslint-plugin-next (recommended + core-web-vitals rules) plus
+      eslint-plugin-react-hooks (recommended rules). All three plugins ship as
+      transitive deps of eslint-config-next, so no extra installs are needed.
+      This lints clean with one informational react-hooks/incompatible-library
+      warning about React Hook Form's watch() (not a defect). Reuse this pattern
+      for any future Next.js 16 frontend spec in this repo.
+    tags: [frontend, eslint, next, tooling]
+    date: 2026-08-04
+    source_spec: SPEC-003
