@@ -5,3 +5,16 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+build/
+next-env.d.ts
+.env
+.env.local
+*.tsbuildinfo
+coverage/
+npm-debug.log*
+

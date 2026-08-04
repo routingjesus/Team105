@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: ready
+status: done
 created: 2026-07-27
 updated: 2026-08-04
 
@@ -14,3 +14,67 @@ coordination:
   blast_radius: structural
   parallel_safe: false
 ready_sha: "d28bce17c97ff949683c28cf0231eccbbbbe7d8e"
+
+learnings:
+  - type: constraint_found
+    summary: "Bootcamp Windows hosts have no Node toolchain; winget MSI needs admin, user-local zip works"
+    context: >
+      Mirrors SPEC-001's uv finding for the JS side: node/npm/pnpm are all
+      absent on the bootcamp host. `winget install OpenJS.NodeJS.LTS` downloads
+      fine but the MSI fails with exit 1603 because it needs interactive admin
+      elevation, which the non-interactive agent shell can't grant. The working
+      path was to download the official node-vXX-win-x64.zip via
+      Invoke-WebRequest (system TLS store handles the corporate interception
+      that breaks uv/cargo) and extract to a user dir, then prepend it to PATH.
+      No admin required. Applies to any future Node/frontend spec on these hosts.
+    tags: [environment, windows, node, npm, tls]
+    date: 2026-08-04
+  - type: decision_made
+    summary: "eslint-config-next 16 + FlatCompat crashes under ESLint 9; use a direct flat config"
+    context: >
+      The create-next-app-style eslint.config.mjs (FlatCompat.extends
+      'next/core-web-vitals','next/typescript') throws 'Converting circular
+      structure to JSON' inside @eslint/eslintrc's config validator with
+      eslint-config-next 16.3.0 on ESLint 9.39. Replaced it with a direct flat
+      config wiring @typescript-eslint/parser + @next/eslint-plugin-next
+      (recommended + core-web-vitals rules) + eslint-plugin-react-hooks
+      recommended rules. Lints clean (one informational
+      react-hooks/incompatible-library warning about RHF's watch()). Also note:
+      npm blocked unrs-resolver's postinstall (allow-scripts), which only affects
+      eslint-plugin-import's resolver, not this config.
+    tags: [frontend, eslint, next, tooling]
+    date: 2026-08-04
+  - type: decision_made
+    summary: "Wizard form uses camelCase values + explicit builders that map to the snake_case API contract"
+    context: >
+      RHF/Zod form values are camelCase and UI-shaped (e.g. selectionMode,
+      states as a comma string, advanced toggles), while lib/wizard-types.ts
+      mirrors the backend Pydantic shapes field-for-field. lib/build-config.ts
+      (buildTruckConfig / buildStopConfig) bridges the two, and stop generation
+      derives depots/weeks/volumes from the truck generate response
+      (TruckGenerationResponse) so the two files stay contract-consistent. This
+      keeps the form ergonomic without redefining the contract. Confirmed the
+      inferred truck path is real: POST /api/trucks/generate + /download
+      (fleet.truck); stops are /api/stops/* (stops.xlsx) -- resolving the spec's
+      open question #1.
+    tags: [frontend, api-contract, react-hook-form, zod]
+    date: 2026-08-04
+
+completion:
+  date: 2026-08-04
+  pull_requests: []
+  acceptance_criteria_waived:
+    - acceptance_criteria: "Given the deployed bootcamp URL, when a reviewer walks through the wizard, then the full flow from kickoff to download completes in under 3 minutes for a demo scenario (2 depots, 2 weeks, ~20 stops)."
+      rationale: >
+        Requires a deployed URL and human timing; no deployment target is
+        available to the agent. The wizard is built for this (four short steps,
+        defaults matching the demo scenario: 2 weeks, ~20 stops) and passes
+        build/tests/lint. User approved completing with this AC pending manual
+        verification on a deployed instance.
+    - acceptance_criteria: "Given generated files from the wizard, when imported into DirectRoute, then a valid solution is created without exceptions (end-to-end demo acceptance)."
+      rationale: >
+        DirectRoute is not available to the agent (same waiver pattern as
+        SPEC-001 AC7 and SPEC-002). The wizard consumes the real SPEC-001/002
+        API contract and delivers the .TRUCK + .XLSX outputs; end-to-end import
+        acceptance is pending human verification via the deployed wizard +
+        DirectRoute import.

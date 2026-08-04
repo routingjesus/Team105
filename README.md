@@ -10,7 +10,7 @@ wizard. Bootcamp capstone for AI Bootcamp Cohort 3, Team 105.
 |-------|------|-------|
 | Truck file generator + API | SPEC-001 | Done ([PR #2](https://github.com/routingjesus/Team105/pull/2)) |
 | Stop file generator | SPEC-002 | Done ([PR #3](https://github.com/routingjesus/Team105/pull/3)) |
-| Wizard UI (Next.js) | SPEC-003 | Ready |
+| Wizard UI (Next.js) | SPEC-003 | In progress |
 
 Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
 `spec-dashboard` skill) for current status.
@@ -41,7 +41,37 @@ Endpoints (same request body per generator, two delivery shapes each):
 
 Interactive docs at `http://127.0.0.1:8000/docs`.
 
-## Tests
+## Wizard UI (frontend)
+
+A Next.js (App Router) wizard walks a user through route and stop questions,
+previews the dataset, then generates and downloads both files via the API
+above. It consumes the backend contract directly — no file formats are exposed
+to the user.
+
+```powershell
+# Node is not preinstalled on bootcamp hosts; install once:
+winget install OpenJS.NodeJS.LTS   # or unzip an official Node build to a user dir
+
+npm install
+copy .env.example .env             # points NEXT_PUBLIC_API_BASE_URL at the API
+npm run dev                        # wizard at http://localhost:3000/datasets/new
+```
+
+Build, lint, and test the frontend:
+
+```powershell
+npm run build
+npm run lint
+npm test
+```
+
+The wizard calls `POST /api/trucks/generate` then `POST /api/stops/generate`
+(stop generation consumes the truck response), decodes the base64 file content
+from each response, and offers one download button per file. Set
+`NEXT_PUBLIC_API_BASE_URL` to the deployed API origin (the backend must allow
+CORS for the wizard origin, or proxy through a Next Route Handler).
+
+## Backend tests
 
 ```powershell
 .venv\Scripts\python.exe -m pytest tests/
@@ -59,5 +89,9 @@ A few tests skip by design:
 - `backend/schemas/` — Pydantic request/response contracts (canonical for all specs)
 - `backend/generators/` — pure file emitters, no I/O
 - `backend/services/` — supporting logic with I/O or numeric work (e.g. `spatial.py`)
-- `tests/` — pytest suite
+- `tests/` — pytest suite (backend)
+- `app/` — Next.js App Router pages (`/` landing, `/datasets/new` wizard)
+- `components/wizard/` — wizard step components and orchestrator
+- `lib/` — API client, Zod schema/types mirroring the backend contract, config mappers
+- `hooks/` — session persistence for in-progress answers
 - `.spec/` — Creator specs, lifecycle metadata, and curated learnings ledger
