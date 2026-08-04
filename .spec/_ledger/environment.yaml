@@ -52,3 +52,20 @@ entries:
     tags: [environment, windows, path, ports, powershell]
     date: 2026-08-04
     source_spec: SPEC-003
+  - type: constraint_found
+    summary: "Windows port probing for a Node/Next server must be dual-stack, or an IPv6 (::) listener is missed and `next start` dies with EADDRINUSE :::<port>"
+    context: >
+      Sharpens the SPEC-003 "probe bindable ports" note with a specific gotcha
+      from the SPEC-004 launcher. A probe that binds only IPv4 loopback
+      ([TcpListener]::new([IPAddress]::Loopback, port)) reports a port as free
+      even when a Node/next server is already bound to :: (IPv6). Node binds
+      dual-stack (IPv6 + IPv4-mapped), so it then fails with EADDRINUSE
+      :::<port> and exits. Probe dual-stack instead: bind
+      [TcpListener]::new([IPAddress]::IPv6Any, port) with Server.DualMode=$true,
+      and also consult `Get-NetTCPConnection -LocalPort <p> -State Listen`, which
+      sees listeners on any address family and catches reserved-but-not-listening
+      ports (the WinError 10013 port-8000 case). Any Windows launcher that
+      auto-selects a port for a Node/Next server needs this.
+    tags: [environment, windows, ports, ipv6, powershell]
+    date: 2026-08-04
+    source_spec: SPEC-004
