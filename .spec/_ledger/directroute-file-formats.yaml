@@ -44,3 +44,28 @@ entries:
     tags: [directroute, location-db, data-hygiene, stop-file]
     date: 2026-08-04
     source_spec: SPEC-003
+    # Corroborated by SPEC-005: the coordinate carry-through fix's real-DB
+    # assertion found no divergence from the fixture, but keep testing both —
+    # the fixture wouldn't have caught a real-DB-only quirk if one existed.
+
+  - type: pattern_discovered
+    summary: "Row-assembly passthrough gaps: a column reserved in the header but silently blank means the source-to-row mapping was never wired for it"
+    context: >
+      backend/generators/stop.py's COLUMN_ORDER reserved Longitude/Latitude
+      slots since SPEC-002, and the candidate DataFrame carried real values
+      through the entire filter/thin pipeline (backend/services/spatial.py),
+      but SelectedStop, selected_stops_from_candidates(), and the row_by_col
+      dict in build_rows() never read or set them — so every output row
+      rendered blank cells with no error. The fix is always the same three
+      edits: add the field to the row dataclass, read it off the candidate
+      row, add the key to row_by_col using the exact COLUMN_ORDER name.
+      backend/generators/truck.py (SPEC-001) has the identical unfixed gap
+      for its own Longitude/Latitude columns — apply the same three-edit
+      pattern there if that generator is ever extended to carry coordinates.
+      Regression-proof this class of bug with a direct source-to-output
+      equality assertion per field, not just a non-blank check — "column
+      present in the header" and "value actually populated" are different
+      claims.
+    tags: [directroute, stop-file, truck-file, row-assembly, passthrough-bug]
+    date: 2026-08-04
+    source_spec: SPEC-005
