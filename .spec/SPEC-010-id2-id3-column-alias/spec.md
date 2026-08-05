@@ -2,7 +2,7 @@
 id: SPEC-010
 title: "Prompt for ID2/ID3 column alias names"
 category: feature
-owner: Tye Lofts                         # git config user.name
+owner: Cursor Agent                         # git config user.name
 authored_by: augmented                # augmented | automated
 ---
 
