@@ -110,6 +110,24 @@ class TestBuildHeader:
         assert "ID2" in header
         assert "ID3" in header
 
+    def test_id2_id3_aliases_do_not_change_row_values(self, base_config, location_db):
+        base_config.consolidation = ConsolidationConfig(enabled=True, lines_per_customer=3)
+        candidates = select_candidates(base_config, location_db)[0]
+
+        header_default = build_header(base_config)
+        rows_default = build_rows(base_config, candidates)
+        id2_idx_default = header_default.index("ID2")
+        values_default = [row[id2_idx_default] for row in rows_default]
+
+        base_config.aliases = AliasConfig(id2="Customer ID", id3="Route Zone")
+        header_aliased = build_header(base_config)
+        rows_aliased = build_rows(base_config, candidates)
+        id2_idx_aliased = header_aliased.index("Customer ID")
+
+        # Aliasing the header must not change which values land in the column.
+        assert id2_idx_aliased == id2_idx_default
+        assert [row[id2_idx_aliased] for row in rows_aliased] == values_default
+
     def test_volume_columns_expand_for_multiple_volumes(self, base_config):
         base_config.volumes = [VolumeSpec(name="Cube", capacity=1800), VolumeSpec(name="Weight", capacity=44000)]
         base_config.volume_answers = [

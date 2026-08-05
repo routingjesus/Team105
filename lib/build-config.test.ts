@@ -117,4 +117,26 @@ describe("buildStopConfig", () => {
     );
     expect(config.aliases).toBeNull();
   });
+
+  it("sends id2/id3 alongside the other five aliases when aliasesEnabled is true", () => {
+    const config = buildStopConfig(
+      {
+        ...values,
+        aliasesEnabled: true,
+        aliasName: "Customer Name",
+        aliasId2: "Customer ID",
+        aliasId3: "Route Zone",
+      },
+      truckResponse,
+    );
+    expect(config.aliases).toEqual({
+      name: "Customer Name",
+      contact: null,
+      phone: null,
+      id1: null,
+      id2: "Customer ID",
+      id3: "Route Zone",
+      address_2: null,
+    });
+  });
 });

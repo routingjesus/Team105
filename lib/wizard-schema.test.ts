@@ -100,7 +100,7 @@ describe("wizardSchema", () => {
   });
 
   it("rejects non-ASCII ID2/ID3 aliases", () => {
-    const result = wizardSchema.safeParse({ ...validValues, aliasId2: "Zöne" });
-    expect(result.success).toBe(false);
+    expect(wizardSchema.safeParse({ ...validValues, aliasId2: "Zöne" }).success).toBe(false);
+    expect(wizardSchema.safeParse({ ...validValues, aliasId3: "Zöne" }).success).toBe(false);
   });
 });
