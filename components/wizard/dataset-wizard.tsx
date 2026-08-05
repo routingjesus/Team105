@@ -10,9 +10,13 @@ import {
   wizardSchema,
   type WizardFormValues,
 } from "@/lib/wizard-schema";
-import { ApiError, generateStops, generateTruck, stepForFormPath } from "@/lib/api";
+import { ApiError, generateDrprojectConfig, generateStops, generateTruck, stepForFormPath } from "@/lib/api";
 import { buildStopConfig, buildTruckConfig } from "@/lib/build-config";
-import type { StopGenerationResponse, TruckGenerationResponse } from "@/lib/wizard-types";
+import type {
+  DrprojectConfigResponse,
+  StopGenerationResponse,
+  TruckGenerationResponse,
+} from "@/lib/wizard-types";
 import {
   clearPersistedValues,
   loadPersistedValues,
@@ -29,6 +33,7 @@ const STEPS = ["Route details", "Stop details", "Review", "Download"];
 interface GenerationResult {
   truck: TruckGenerationResponse;
   stop: StopGenerationResponse;
+  drprojectConfig: DrprojectConfigResponse;
 }
 
 /** Earliest wizard step (0 = route, 1 = stop) that owns any of the given field paths. */
@@ -131,8 +136,10 @@ export function DatasetWizard() {
       methods.clearErrors("root");
       try {
         const truck = await generateTruck(buildTruckConfig(values));
-        const stop = await generateStops(buildStopConfig(values, truck));
-        setResult({ truck, stop });
+        const stopConfig = buildStopConfig(values, truck);
+        const stop = await generateStops(stopConfig);
+        const drprojectConfig = await generateDrprojectConfig(stopConfig);
+        setResult({ truck, stop, drprojectConfig });
         clearPersistedValues();
         advance(3);
       } catch (error) {
@@ -186,7 +193,12 @@ export function DatasetWizard() {
             />
           ) : null}
           {step === 3 && result ? (
-            <Download truck={result.truck} stop={result.stop} onReset={handleReset} />
+            <Download
+              truck={result.truck}
+              stop={result.stop}
+              drprojectConfig={result.drprojectConfig}
+              onReset={handleReset}
+            />
           ) : null}
 
           {step < 2 ? (

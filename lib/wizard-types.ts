@@ -139,6 +139,13 @@ export interface StopGenerationResponse {
   stop_file_base64: string;
 }
 
+// --- DRProject.config response (backend/schemas/drproject_config.py) ---
+
+export interface DrprojectConfigResponse {
+  filename: string;
+  drproject_config_file_base64: string;
+}
+
 // --- FastAPI error contract (HTTP 422) ---
 
 export interface FastApiValidationDetail {

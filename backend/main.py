@@ -1,10 +1,11 @@
-"""FastAPI app exposing truck (SPEC-001) and stop (SPEC-002) file generation.
+"""FastAPI app exposing truck (SPEC-001), stop (SPEC-002), and DRProject.config
+(SPEC-012) file generation.
 
 Paired delivery shapes over the same request body, per generator:
-- POST /api/trucks/generate | /api/stops/generate  -> JSON metadata with
-  base64 file content
-- POST /api/trucks/download | /api/stops/download  -> raw file bytes with
-  Content-Disposition
+- POST /api/trucks/generate | /api/stops/generate | /api/drproject-config/generate
+  -> JSON metadata with base64 file content
+- POST /api/trucks/download | /api/stops/download | /api/drproject-config/download
+  -> raw file bytes with Content-Disposition
 """
 
 import base64
@@ -15,8 +16,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
+from backend.generators.drproject_config import generate_drproject_config
 from backend.generators.stop import FrequencyConsistencyError, generate_stop_file, select_candidates
 from backend.generators.truck import generate_truck_file
+from backend.schemas.drproject_config import DrprojectConfigResponse
 from backend.schemas.stop_config import StopConfig, StopGenerationResponse
 from backend.schemas.truck_config import (
     DepotSummary,
@@ -28,6 +31,7 @@ from backend.services.spatial import DepotCoordinateError, load_location_db
 
 TRUCK_FILENAME = "fleet.truck"
 STOP_FILENAME = "stops.xlsx"
+DRPROJECT_CONFIG_FILENAME = "DRProject.config"
 LOCATION_DB_PATH = Path(__file__).parent / "data" / "location_db.xlsx"
 
 app = FastAPI(title="Team105 Dataset Creation Wizard API")
@@ -142,5 +146,26 @@ def download_stops(config: StopConfig) -> Response:
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": f'attachment; filename="{STOP_FILENAME}"',
+        },
+    )
+
+
+@app.post("/api/drproject-config/generate", response_model=DrprojectConfigResponse)
+def generate_drproject_config_endpoint(config: StopConfig) -> DrprojectConfigResponse:
+    content = generate_drproject_config(config)
+    return DrprojectConfigResponse(
+        filename=DRPROJECT_CONFIG_FILENAME,
+        drproject_config_file_base64=base64.b64encode(content).decode("ascii"),
+    )
+
+
+@app.post("/api/drproject-config/download")
+def download_drproject_config(config: StopConfig) -> Response:
+    content = generate_drproject_config(config)
+    return Response(
+        content=content,
+        media_type="application/xml",
+        headers={
+            "Content-Disposition": f'attachment; filename="{DRPROJECT_CONFIG_FILENAME}"',
         },
     )

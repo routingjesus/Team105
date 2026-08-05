@@ -1,22 +1,29 @@
 "use client";
 
-import { downloadBase64, STOP_MIME, TRUCK_MIME } from "@/lib/api";
-import type { StopGenerationResponse, TruckGenerationResponse } from "@/lib/wizard-types";
+import { downloadBase64, DRPROJECT_CONFIG_MIME, STOP_MIME, TRUCK_MIME } from "@/lib/api";
+import type {
+  DrprojectConfigResponse,
+  StopGenerationResponse,
+  TruckGenerationResponse,
+} from "@/lib/wizard-types";
 
 interface DownloadProps {
   truck: TruckGenerationResponse;
   stop: StopGenerationResponse;
+  drprojectConfig: DrprojectConfigResponse;
   onReset: () => void;
 }
 
-export function Download({ truck, stop, onReset }: DownloadProps) {
+export function Download({ truck, stop, drprojectConfig, onReset }: DownloadProps) {
   return (
     <section aria-labelledby="wizard-step-heading">
       <h2 id="wizard-step-heading" tabIndex={-1}>
         Your dataset is ready
       </h2>
       <p className="step-intro">
-        Download both files below, then import them into DirectRoute to build your solution.
+        Download all three files below, then place <code>DRProject.config</code> in your
+        DirectRoute user data directory (File → Preferences) and import the truck and stop
+        files to build your solution.
       </p>
 
       <dl className="summary">
@@ -52,6 +59,19 @@ export function Download({ truck, stop, onReset }: DownloadProps) {
           onClick={() => downloadBase64(stop.stop_file_base64, stop.filename, STOP_MIME)}
         >
           Download stop file ({stop.filename})
+        </button>
+        <button
+          type="button"
+          className="primary"
+          onClick={() =>
+            downloadBase64(
+              drprojectConfig.drproject_config_file_base64,
+              drprojectConfig.filename,
+              DRPROJECT_CONFIG_MIME,
+            )
+          }
+        >
+          Download project config ({drprojectConfig.filename})
         </button>
       </div>
 
