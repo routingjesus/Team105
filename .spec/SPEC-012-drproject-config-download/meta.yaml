@@ -1,0 +1,60 @@
+schema_version: "2026.04"
+status: research                        # draft | research | ready | in_progress | blocked | done | cancelled | superseded
+created: 2026-08-05
+updated: 2026-08-05
+
+# Origin (optional — informational, not a dependency)
+# source: "https://..."                 # Shareable origin breadcrumb, never a local filesystem path like /home/... or /Users/...
+# tracking_id: ""                       # External reference (Notion task, Jira ticket, etc.)
+
+# Dependencies (optional — advisory ordering, not execution blockers)
+# depends_on:
+#   - "SPEC-030"                        # Lightweight sequencing; upstream should usually be done first
+# blocked_by:
+#   - spec: "SPEC-030"
+#     until_status: "ready"            # required; ready | done
+
+# Coordination (blast radius classification for parallel work)
+coordination:
+  blast_radius: isolated                # New sibling generator/schema/route/download-button, mirrors existing truck/stop contract without modifying it
+  parallel_safe: true
+
+# Branching (optional — non-default branch topology for stacked or integration workflows)
+# branching:
+#   base_branch: ""                    # Branch to fork from; defaults to repo default branch when absent
+#   target_branch: ""                  # PR base branch; defaults to repo default branch when absent
+
+# Freshness snapshot (populate when status reaches ready)
+# ready_sha: ""                         # Full git HEAD commit recorded at the ready transition; used for advisory staleness checks
+
+# Completion (populate when status reaches done)
+# completion:
+#   date: 2026-08-05
+#   acceptance_criteria_waived:         # Omit if none waived
+#     - acceptance_criteria: ""
+#       rationale: ""
+#   self_review_waived:                 # Omit if none waived; pr-review blocking findings the user accepted to proceed
+#     - finding: ""
+#       rationale: ""
+#   pull_requests:
+#     - "https://github.com/..."
+
+# Learnings (add during and after execution)
+learnings:
+  - type: constraint_found
+    summary: "DRProject.config has no public schema — need an owner-supplied sample before this spec can leave research"
+    context: >
+      DRProject.config is proprietary/undocumented outside DirectRoute itself
+      (no public Trimble/Appian reference found), structurally the same gap
+      SPEC-001 hit for the .TRUCK macro schema and SPEC-002 hit for the stop
+      column catalog — both were resolved by the owner supplying a real
+      sample file bundled as a golden fixture (fixtures/truck/,
+      fixtures/stop/). The user's own message referenced a real local
+      DRProject.config from an existing project as the intended template
+      source. Once supplied (sanitized of proprietary customer data),
+      bundle it under fixtures/drproject-config/ and finalize spec.md's
+      AC 2/AC 3 field list and the structural-parity test expectations
+      against it before transitioning this spec to ready.
+    tags: [directroute, drproject-config, file-format, open-question]
+    date: 2026-08-05
+    source_spec: SPEC-012
