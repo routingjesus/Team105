@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: ready
+status: done
 created: 2026-08-04
 updated: 2026-08-05
 
@@ -47,3 +47,36 @@ updated: 2026-08-05
 #     tags: []
 #     date: 2026-08-04
 ready_sha: "14f8bf095e0f481c2d2af2f0d0792452055d63dd"
+
+coordination:
+  blast_radius: isolated
+  parallel_safe: true
+
+completion:
+  date: 2026-08-05
+  pull_requests: []
+
+learnings:
+  - type: pattern_discovered
+    summary: >-
+      Reported bug did not reproduce: achievable_frequency_values/build_rows
+      already select fractional Frequency values correctly, verified at the
+      generator, full .xlsx round-trip, and HTTP API (TestClient) layers.
+    context: >-
+      Traced backend/generators/stop.py, backend/schemas/stop_config.py,
+      lib/build-config.ts, and components/wizard/stop-questions.tsx for
+      SPEC-006's "Frequency collapses to 1" report; every layer produced
+      correct fractional (0.5) output for multiple weeks/seed/stop_count
+      combinations.
+    tags: ["bug-not-reproduced", "stop-generator", "frequency"]
+    date: 2026-08-05
+  - type: gap_found
+    summary: >-
+      Existing test_frequency_values_come_from_requested_subset only
+      asserted a subset relationship (seen <= requested), which passes even
+      if a fractional value never actually appears in output — added two
+      tests that assert 0.5 explicitly appears, one against the in-memory
+      row list and one against the round-tripped .xlsx bytes.
+    context: "tests/test_stop_generator.py"
+    tags: ["test-coverage", "regression-test"]
+    date: 2026-08-05

@@ -1,5 +1,6 @@
 """Unit tests for the stop file generator (SPEC-002)."""
 
+import io
 import random
 
 import pandas as pd
@@ -239,6 +240,33 @@ class TestBuildRows:
         rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
         seen = {float(row[freq_idx]) for row in rows}
         assert seen <= set(base_config.frequency_values)
+
+    def test_fractional_frequency_populates_output_rows(self, base_config, location_db):
+        # SPEC-006 regression: a requested 0.5 ("every other week") value
+        # must actually show up in the output, not just be a permitted
+        # subset member (that weaker check is `test_frequency_values_come_
+        # from_requested_subset` above). A large enough stop count makes it
+        # deterministic that `rng.choice` selects 0.5 at least once for this
+        # fixed seed.
+        base_config.frequency_values = [1, 0.5]
+        base_config.stop_count = 30
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        freq_idx = header.index("Frequency")
+        rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
+        seen = {float(row[freq_idx]) for row in rows}
+        assert 0.5 in seen, f"expected a Frequency of 0.5 among output rows, saw {sorted(seen)}"
+
+    def test_fractional_frequency_survives_full_xlsx_round_trip(self, base_config, location_db):
+        # SPEC-006 regression: assert against the actual generated `.xlsx`
+        # bytes (read back with pandas), not just the in-memory row list, so
+        # an Excel-writer/number-formatting regression would also be caught.
+        base_config.frequency_values = [1, 0.5]
+        base_config.stop_count = 30
+        candidates, _ = select_candidates(base_config, location_db)
+        content = generate_stop_file(base_config, candidates)
+        df = pd.read_excel(io.BytesIO(content), sheet_name="Stop File")
+        assert 0.5 in set(df["Frequency"].tolist())
 
     def test_consolidation_creates_n_rows_per_customer_with_unique_id2(self, base_config, location_db):
         base_config.consolidation = ConsolidationConfig(enabled=True, lines_per_customer=3)

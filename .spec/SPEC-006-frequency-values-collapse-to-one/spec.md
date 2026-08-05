@@ -2,7 +2,7 @@
 id: SPEC-006
 title: "Frequency values collapse to 1 instead of populating fractional patterns"
 category: bug
-owner: Tye Lofts                         # git config user.name
+owner: Cursor Agent                      # git config user.name
 authored_by: augmented                # augmented | automated
 ---
 
