@@ -125,6 +125,17 @@ class TestAchievableFrequency:
         with pytest.raises(FrequencyConsistencyError):
             build_rows(base_config, candidates)
 
+    def test_build_rows_raises_when_only_some_values_are_achievable(self, base_config, location_db):
+        # SPEC-006 regression: weeks=1 fits `1` but not `0.5` (needs a
+        # 2-week cycle). Previously this silently proceeded with `achievable
+        # == [1.0]`, so every row got Frequency=1 regardless of the 0.5
+        # request -- AC #2 requires a hard rejection instead.
+        base_config.weeks = 1
+        base_config.frequency_values = [1, 0.5]
+        candidates = select_candidates(base_config, location_db)[0]
+        with pytest.raises(FrequencyConsistencyError):
+            build_rows(base_config, candidates)
+
 
 class TestStopConfigRejectsInvalidFixedWindow:
     """AC6 regression: an invalid caller-supplied fixed window must be
@@ -254,6 +265,22 @@ class TestBuildRows:
         rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
         seen = {float(row[freq_idx]) for row in rows}
         assert seen <= set(base_config.frequency_values)
+
+    def test_fractional_frequency_actually_populates_output(self, base_config, location_db):
+        # SPEC-006 AC #1 and #3: a requested 0.5 must actually appear in the
+        # rendered output, not just survive a subset-membership check (which
+        # the bug satisfied even when every row was 1). weeks=2 is enough
+        # for a 0.5 (biweekly) cycle to fit.
+        base_config.weeks = 2
+        base_config.stop_count = 20
+        base_config.frequency_values = [1, 0.5]
+        base_config.seed = 5
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        freq_idx = header.index("Frequency")
+        rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
+        seen = {float(row[freq_idx]) for row in rows}
+        assert 0.5 in seen
 
     def test_consolidation_creates_n_rows_per_customer_with_unique_id2(self, base_config, location_db):
         base_config.consolidation = ConsolidationConfig(enabled=True, lines_per_customer=3)

@@ -72,7 +72,7 @@ PATTERN_SCOPE_DAYS: dict[str, tuple[str, ...]] = {
 
 
 class FrequencyConsistencyError(ValueError):
-    """Raised when no requested frequency value fits the routing horizon."""
+    """Raised when any requested frequency value doesn't fit the routing horizon."""
 
 
 def _alias(aliases, key: str, default: str) -> str:
@@ -223,9 +223,14 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
     """Data rows, one (or more, if consolidation is enabled) per selected stop."""
     rng = rng if rng is not None else random.Random(config.seed)
     achievable = achievable_frequency_values(config.frequency_values, config.weeks)
-    if not achievable:
+    unfit = [value for value in config.frequency_values if value not in achievable]
+    if unfit:
+        # Any non-empty `unfit` -- not just a totally empty `achievable` --
+        # must reject: otherwise rng.choice() below silently narrows to a
+        # smaller set than the caller requested.
         raise FrequencyConsistencyError(
-            f"None of {config.frequency_values} fit within a {config.weeks}-week routing horizon"
+            f"Requested frequency value(s) {unfit} do not fit within a {config.weeks}-week "
+            "routing horizon; increase weeks or remove these values from frequency_values."
         )
 
     stops = selected_stops_from_candidates(candidates)
