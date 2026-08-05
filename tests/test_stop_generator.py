@@ -195,6 +195,25 @@ class TestTimeWindow:
             open1, close1, _ = build_time_window(base_config, rng)
             assert validate_time_window(open1, close1, base_config.fixed_time_minutes)
 
+    def test_randomized_mode_biases_toward_business_hours(self, base_config):
+        # SPEC-009 regression: real-world stops are rarely open past 1700, so
+        # the majority of generated windows should fall within 0500-1600 and
+        # only a small minority should close after 1700.
+        base_config.time_window = TimeWindowConfig(mode="randomized", pattern_scope="week")
+        rng = random.Random(3)
+        sample_size = 3000
+        within_business_hours = 0
+        closes_after_1700 = 0
+        for _ in range(sample_size):
+            open1, close1, _ = build_time_window(base_config, rng)
+            if open1 >= 500 and close1 <= 1600:
+                within_business_hours += 1
+            if close1 > 1700:
+                closes_after_1700 += 1
+
+        assert within_business_hours / sample_size >= 0.75
+        assert closes_after_1700 / sample_size <= 0.20
+
     def test_build_pattern1_week_scope_is_all_active(self):
         pattern = build_pattern1("week", None, random.Random(0))
         assert pattern == "SMTWRFA"

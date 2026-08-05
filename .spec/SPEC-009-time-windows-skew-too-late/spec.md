@@ -2,7 +2,7 @@
 id: SPEC-009
 title: "Time window generation under-weights realistic business hours"
 category: bug
-owner: Tye Lofts                         # git config user.name
+owner: Cursor Agent                      # git config user.name
 authored_by: augmented                # augmented | automated
 ---
 
