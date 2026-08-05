@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: in_progress
+status: done
 created: 2026-08-05
 updated: 2026-08-05
 
@@ -47,3 +47,29 @@ coordination:
 #     tags: []
 #     date: 2026-08-05
 ready_sha: "01e09120da92628516ca954c6269db12eb0ea020"
+
+completion:
+  date: 2026-08-05
+  pull_requests: []
+
+learnings:
+  - type: assumption_confirmed
+    summary: >
+      OR-gate on existing generate_shapes / generate_colors flags is sufficient
+      for Size; no schema or wizard changes required.
+    context: >
+      One adjacent if-block after Symbol/Color in build_rows, emitting string
+      "28" (matching truck Size="12" string style). Extending the four
+      TestBuildRows cases covered all ACs.
+    tags: [stop-generator, size, shapes-colors]
+    date: 2026-08-05
+  - type: constraint_found
+    summary: >
+      Spec authored on a planning-* branch is absent from origin/main until
+      checked out onto the SPEC-* feature branch.
+    context: >
+      Branching SPEC-014 from origin/main left .spec/SPEC-014-* missing;
+      `git checkout planning-stops-enhancements -- .spec/SPEC-014-...` restored
+      it before transition to in_progress.
+    tags: [branching, planning-branch, agent-coding]
+    date: 2026-08-05
