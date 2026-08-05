@@ -96,6 +96,52 @@ describe("buildStopConfig", () => {
     expect(config.consolidation).toEqual({ enabled: true, lines_per_customer: 3 });
   });
 
+  it("sends only id2/id3 aliases when aliasesEnabled is false", () => {
+    const config = buildStopConfig(
+      { ...values, aliasesEnabled: false, aliasId2: "Customer ID", aliasId3: "Route Zone" },
+      truckResponse,
+    );
+    expect(config.aliases).toEqual({
+      name: null,
+      contact: null,
+      phone: null,
+      id1: null,
+      id2: "Customer ID",
+      id3: "Route Zone",
+      address_2: null,
+    });
+  });
+
+  it("still gates the other five alias fields behind aliasesEnabled", () => {
+    const config = buildStopConfig(
+      { ...values, aliasesEnabled: false, aliasName: "Customer Name" },
+      truckResponse,
+    );
+    expect(config.aliases).toBeNull();
+  });
+
+  it("sends id2/id3 alongside the other five aliases when aliasesEnabled is true", () => {
+    const config = buildStopConfig(
+      {
+        ...values,
+        aliasesEnabled: true,
+        aliasName: "Customer Name",
+        aliasId2: "Customer ID",
+        aliasId3: "Route Zone",
+      },
+      truckResponse,
+    );
+    expect(config.aliases).toEqual({
+      name: "Customer Name",
+      contact: null,
+      phone: null,
+      id1: null,
+      id2: "Customer ID",
+      id3: "Route Zone",
+      address_2: null,
+    });
+  });
+
   it("maps shape/color generation toggles", () => {
     const config = buildStopConfig(
       { ...values, generateShapes: true, generateColors: true },

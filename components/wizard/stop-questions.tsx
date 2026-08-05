@@ -238,6 +238,18 @@ export function StopQuestions() {
         ) : null}
       </fieldset>
 
+      <fieldset className="group">
+        <legend>Column labels (optional)</legend>
+        <p className="field-hint">
+          Rename the ID2/ID3 column headers in the exported file to something meaningful — the
+          underlying data is unaffected. Leave blank to keep the technical name.
+        </p>
+        <div className="grid-2">
+          <TextField name="aliasId2" label="ID2 column alias" hint="Leave blank to use ID2" />
+          <TextField name="aliasId3" label="ID3 column alias" hint="Leave blank to use ID3" />
+        </div>
+      </fieldset>
+
       <details className="advanced">
         <summary>Advanced stop options (optional)</summary>
 
@@ -291,8 +303,6 @@ export function StopQuestions() {
               <TextField name="aliasContact" label="Contact column alias" />
               <TextField name="aliasPhone" label="Phone column alias" />
               <TextField name="aliasId1" label="ID1 column alias" />
-              <TextField name="aliasId2" label="ID2 column alias" />
-              <TextField name="aliasId3" label="ID3 column alias" />
               <TextField name="aliasAddress2" label="Address 2 column alias" />
             </div>
           ) : null}

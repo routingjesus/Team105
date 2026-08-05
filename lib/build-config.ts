@@ -31,16 +31,18 @@ export function buildTruckConfig(values: WizardFormValues): TruckConfig {
 }
 
 function buildAliases(values: WizardFormValues): AliasConfig | null {
-  if (!values.aliasesEnabled) return null;
   const clean = (v: string) => (v.trim().length > 0 ? v.trim() : null);
+  // ID2/ID3 have their own always-visible prompt (SPEC-010) and are sent
+  // whenever non-blank, independent of the "Rename output columns" toggle
+  // that still gates the other five alias fields.
   const aliases: AliasConfig = {
-    name: clean(values.aliasName),
-    contact: clean(values.aliasContact),
-    phone: clean(values.aliasPhone),
-    id1: clean(values.aliasId1),
+    name: values.aliasesEnabled ? clean(values.aliasName) : null,
+    contact: values.aliasesEnabled ? clean(values.aliasContact) : null,
+    phone: values.aliasesEnabled ? clean(values.aliasPhone) : null,
+    id1: values.aliasesEnabled ? clean(values.aliasId1) : null,
     id2: clean(values.aliasId2),
     id3: clean(values.aliasId3),
-    address_2: clean(values.aliasAddress2),
+    address_2: values.aliasesEnabled ? clean(values.aliasAddress2) : null,
   };
   const hasAny = Object.values(aliases).some((v) => v !== null);
   return hasAny ? aliases : null;
