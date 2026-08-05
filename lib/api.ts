@@ -1,6 +1,7 @@
 import type {
   FastApiErrorBody,
   FastApiValidationDetail,
+  DrprojectConfigResponse,
   StopConfig,
   StopGenerationResponse,
   TruckConfig,
@@ -29,6 +30,7 @@ export const API_BASE_URL = resolveApiBaseUrl();
 
 export const TRUCK_MIME = "text/tab-separated-values";
 export const STOP_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+export const DRPROJECT_CONFIG_MIME = "application/xml";
 
 export interface FieldError {
   /** RHF field path (dot/bracket notation). */
@@ -188,6 +190,10 @@ export function generateTruck(config: TruckConfig): Promise<TruckGenerationRespo
 
 export function generateStops(config: StopConfig): Promise<StopGenerationResponse> {
   return postJson<StopGenerationResponse>("/api/stops/generate", config);
+}
+
+export function generateDrprojectConfig(config: StopConfig): Promise<DrprojectConfigResponse> {
+  return postJson<DrprojectConfigResponse>("/api/drproject-config/generate", config);
 }
 
 /** Decode base64 file content (from a `generate` response) into a Blob. */

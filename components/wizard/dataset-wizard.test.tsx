@@ -26,6 +26,11 @@ const stopResponse = {
   stop_file_base64: "AAAA",
 };
 
+const drprojectConfigResponse = {
+  filename: "DRProject.config",
+  drproject_config_file_base64: "BBBB",
+};
+
 const okJson = (obj: unknown) => ({ ok: true, status: 200, json: async () => obj });
 
 let clickSpy: ReturnType<typeof vi.spyOn>;
@@ -90,11 +95,12 @@ describe("DatasetWizard", () => {
     expect(screen.getByLabelText("Street address")).toHaveValue("1 Warehouse Way");
   });
 
-  it("completes the flow and offers both downloads (AC3, AC4, AC6)", async () => {
+  it("completes the flow and offers all three downloads (AC3, AC4, AC6)", async () => {
     const fetchMock = vi.fn(async (url: string | URL) => {
       const u = String(url);
       if (u.includes("/api/trucks/generate")) return okJson(truckResponse);
       if (u.includes("/api/stops/generate")) return okJson(stopResponse);
+      if (u.includes("/api/drproject-config/generate")) return okJson(drprojectConfigResponse);
       throw new Error(`unexpected url ${u}`);
     });
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
@@ -113,11 +119,13 @@ describe("DatasetWizard", () => {
     await user.click(screen.getByRole("button", { name: "Generate dataset" }));
 
     await screen.findByRole("heading", { name: "Your dataset is ready" });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(screen.getByText(/DirectRoute user data directory/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Download truck file/ }));
     await user.click(screen.getByRole("button", { name: /Download stop file/ }));
-    expect(clickSpy).toHaveBeenCalledTimes(2);
+    await user.click(screen.getByRole("button", { name: /Download project config/ }));
+    expect(clickSpy).toHaveBeenCalledTimes(3);
   });
 
   it("maps a backend 422 back onto the owning field and returns to its step (AC5)", async () => {
