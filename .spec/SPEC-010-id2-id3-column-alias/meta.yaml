@@ -38,10 +38,30 @@ coordination:
 #   pull_requests:
 #     - "https://github.com/..."
 
-# Learnings (add during and after execution)
-# learnings:
-#   - type: pattern_discovered          # See references/spec-format.md for all types
-#     summary: ""
-#     context: ""
-#     tags: []
-#     date: 2026-08-04
+learnings:
+  - type: pattern_discovered
+    summary: >-
+      ID2/ID3 header aliasing already ships end-to-end from SPEC-002
+      (AliasConfig, ALIAS_FIELD_MAP, build_header()/_alias() fallback);
+      this spec is UX/gating work to surface it as an always-visible
+      optional prompt, not new backend capability.
+    context: >-
+      backend/schemas/stop_config.py (AliasConfig, ALIAS_FIELD_MAP);
+      backend/generators/stop.py (build_header, _alias, lines 78-96);
+      components/wizard/stop-questions.tsx (lines 284-299, gated behind
+      aliasesEnabled); lib/build-config.ts buildAliases() (lines 33-47,
+      discards all aliases including id2/id3 when aliasesEnabled is
+      false).
+    tags: ["directroute-file-formats", "api-contracts", "frontend"]
+    date: 2026-08-05
+  - type: gap_identified
+    summary: >-
+      No test covers ID2/ID3 aliasing specifically, or the partial
+      alias case (only id2/id3 set, other alias fields blank).
+    context: >-
+      tests/test_stop_generator.py::TestBuildHeader only asserts
+      name/id1 aliases; lib/build-config.test.ts only asserts the
+      all-blank-aliases case (line 78); lib/wizard-schema.test.ts has
+      no alias-field cases.
+    tags: ["test-coverage", "stop-generator"]
+    date: 2026-08-05
