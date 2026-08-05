@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: in_progress
+status: done
 created: 2026-08-04
 updated: 2026-08-05
 
@@ -73,3 +73,24 @@ learnings:
     date: 2026-08-05
     source_spec: SPEC-011
 ready_sha: "6e37cb123370a636cb1281b23fee4b3e38252927"
+
+completion:
+  date: 2026-08-05
+  acceptance_criteria_waived:
+    - acceptance_criteria: >
+        AC2/AC3 require shape/color values "drawn only from DirectRoute's
+        supported shape/color list"; the spec's own scope boundary requires
+        that list be sourced from DirectRoute repo/documentation, not
+        invented.
+      rationale: >
+        No authoritative DirectRoute Symbol/Color enum exists anywhere in
+        this repo, and the only referenced source (a private Notion PRD
+        page) is unreachable from this execution environment (fetch times
+        out; no credentials available here). The user explicitly directed
+        proceeding anyway. Implemented with the anecdotal in-repo sample
+        values (Tower/Square/Circle for Symbol; Cyan/Red/Green for Color)
+        as a placeholder allowlist in
+        backend/schemas/stop_config.py::SHAPE_VALUES / COLOR_VALUES.
+        Replacing these constants with the real DirectRoute enum is a
+        drop-in follow-up once that source is available.
+  pull_requests: []
