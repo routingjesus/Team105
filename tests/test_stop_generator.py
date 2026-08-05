@@ -96,6 +96,20 @@ class TestBuildHeader:
         assert "Name" not in header
         assert "Store #" not in header
 
+    def test_id2_id3_aliases_override_headers(self, base_config):
+        base_config.aliases = AliasConfig(id2="Customer ID", id3="Route Zone")
+        header = build_header(base_config)
+        assert "Customer ID" in header
+        assert "Route Zone" in header
+        assert "ID2" not in header
+        assert "ID3" not in header
+
+    def test_id2_id3_blank_alias_falls_back_to_technical_name(self, base_config):
+        base_config.aliases = AliasConfig(id2=None, id3="")
+        header = build_header(base_config)
+        assert "ID2" in header
+        assert "ID3" in header
+
     def test_volume_columns_expand_for_multiple_volumes(self, base_config):
         base_config.volumes = [VolumeSpec(name="Cube", capacity=1800), VolumeSpec(name="Weight", capacity=44000)]
         base_config.volume_answers = [

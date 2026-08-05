@@ -93,4 +93,14 @@ describe("wizardSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts blank ID2/ID3 aliases", () => {
+    const result = wizardSchema.safeParse({ ...validValues, aliasId2: "", aliasId3: "" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects non-ASCII ID2/ID3 aliases", () => {
+    const result = wizardSchema.safeParse({ ...validValues, aliasId2: "Zöne" });
+    expect(result.success).toBe(false);
+  });
 });

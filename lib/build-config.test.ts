@@ -93,4 +93,28 @@ describe("buildStopConfig", () => {
     expect(config.eq_code).toEqual({ enabled: true, codes: ["LIFT", "DOCK"], fraction: 0.5 });
     expect(config.consolidation).toEqual({ enabled: true, lines_per_customer: 3 });
   });
+
+  it("sends only id2/id3 aliases when aliasesEnabled is false", () => {
+    const config = buildStopConfig(
+      { ...values, aliasesEnabled: false, aliasId2: "Customer ID", aliasId3: "Route Zone" },
+      truckResponse,
+    );
+    expect(config.aliases).toEqual({
+      name: null,
+      contact: null,
+      phone: null,
+      id1: null,
+      id2: "Customer ID",
+      id3: "Route Zone",
+      address_2: null,
+    });
+  });
+
+  it("still gates the other five alias fields behind aliasesEnabled", () => {
+    const config = buildStopConfig(
+      { ...values, aliasesEnabled: false, aliasName: "Customer Name" },
+      truckResponse,
+    );
+    expect(config.aliases).toBeNull();
+  });
 });
