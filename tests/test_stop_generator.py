@@ -347,6 +347,44 @@ class TestCoordinateCarryThrough:
             assert len(latitudes) == 1
 
 
+class TestVolumeCells:
+    def test_fixed_mode_values_are_unchanged(self, base_config, location_db):
+        # Regression guard: SPEC-008 only touches "averaged" mode.
+        base_config.volume_answers = [VolumeAnswer(name="Cube", mode="fixed", value=25)]
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        cube_idx = header.index("Cube")
+        rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
+        assert all(row[cube_idx] == "25.00" for row in rows)
+
+    def test_averaged_mode_produces_whole_numbers_with_meaningful_spread(self, base_config, location_db):
+        # AC1 + AC2: averaged-mode volumes must render as whole numbers, and
+        # the spread across many stops must be wide enough to look like real
+        # variance rather than clustering within ~1 unit of the target mean.
+        base_config.stop_count = 40
+        base_config.volume_answers = [VolumeAnswer(name="Cube", mode="averaged", value=12)]
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        cube_idx = header.index("Cube")
+        rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
+        cells = [row[cube_idx] for row in rows]
+
+        assert all("." not in cell for cell in cells), "averaged volumes must render without a decimal component"
+        values = [int(cell) for cell in cells]
+        assert max(values) - min(values) >= 4, "spread around the requested mean is too narrow"
+
+    def test_averaged_mode_never_produces_non_positive_volumes(self, base_config, location_db):
+        # A small requested mean with wide jitter must still floor at 1, not
+        # a zero/negative unit count.
+        base_config.stop_count = 40
+        base_config.volume_answers = [VolumeAnswer(name="Cube", mode="averaged", value=2)]
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        cube_idx = header.index("Cube")
+        rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
+        assert all(int(row[cube_idx]) >= 1 for row in rows)
+
+
 class TestZeroCandidates:
     def test_no_matching_state_produces_empty_but_valid_output(self, base_config, location_db):
         base_config.selection = SelectionConfig(mode="state", states=["ZZ"])
