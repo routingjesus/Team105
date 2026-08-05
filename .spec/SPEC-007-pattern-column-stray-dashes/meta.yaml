@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: ready                           # draft | research | ready | in_progress | blocked | done | cancelled | superseded
+status: in_progress
 created: 2026-08-04
 updated: 2026-08-05
 
@@ -38,11 +38,21 @@ coordination:
 #   pull_requests:
 #     - "https://github.com/..."
 
-# Learnings (add during and after execution)
-# learnings:
-#   - type: pattern_discovered          # See references/spec-format.md for all types
-#     summary: ""
-#     context: ""
-#     tags: []
-#     date: 2026-08-04
+learnings:
+  - type: gap_found
+    summary: "build_pattern1's existing unit tests encoded the bug's dash-padded shape as expected output"
+    context: >
+      Two of the three pre-existing `build_pattern1` tests in
+      tests/test_stop_generator.py asserted the old fixed-width,
+      dash-padded shape (`pattern[0] == "-"`, `pattern == "-M-W-F-"`) as
+      correct behavior, so the test suite passing was not evidence the
+      Pattern1 format was right. Fixed by updating those tests to the
+      dash-free expected values and adding a dedicated regex regression
+      test (`^[SMTWRFA]*$`) at both the unit (`build_pattern1`) and
+      integration (`build_rows` output) level so a future regression to
+      dash-padding would be caught even if someone only skims the
+      pre-existing assertions.
+    tags: [self-review, testing, bug-fix]
+    date: 2026-08-05
+
 ready_sha: "79665cce32677f2b681319120e30472f1a24f613"
