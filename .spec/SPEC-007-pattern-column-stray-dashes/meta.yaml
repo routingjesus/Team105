@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: in_progress
+status: done
 created: 2026-08-04
 updated: 2026-08-05
 
@@ -54,5 +54,25 @@ learnings:
       pre-existing assertions.
     tags: [self-review, testing, bug-fix]
     date: 2026-08-05
+  - type: gap_found
+    summary: "Self-review's test-coverage lane caught that the AC3 integration test skipped the bug's own reproduction scope"
+    context: >
+      The first version of `test_generated_pattern1_column_matches_day_letters_only_regex`
+      looped over `week`/`weekday`/`weekend`/`random` but omitted
+      `specific_days`, which is the exact scope the bug report reproduced
+      with (`specific_days=["M","W","F"]` -> `"-M-W-F-"`). The unit-level
+      test already covered `specific_days`, but the row-construction
+      pipeline (`build_rows`) had no `specific_days` coverage, leaving a
+      gap where a future regression confined to the row-wiring path
+      (rather than `build_pattern1` itself) could slip through. Fixed by
+      adding an explicit `specific_days=["M","W","F"]` case to the
+      integration test, asserting both the regex and the exact expected
+      value `"MWF"`.
+    tags: [self-review, testing, bug-fix]
+    date: 2026-08-05
 
 ready_sha: "79665cce32677f2b681319120e30472f1a24f613"
+
+completion:
+  date: 2026-08-05
+  pull_requests: []

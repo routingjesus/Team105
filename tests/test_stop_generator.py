@@ -195,14 +195,25 @@ class TestTimeWindow:
         import re
 
         pattern1_regex = re.compile(r"^[SMTWRFA]*$")
+        header = build_header(base_config)
+        pattern1_idx = header.index("Pattern1")
         for scope in ("week", "weekday", "weekend", "random"):
             base_config.time_window = TimeWindowConfig(mode="randomized", pattern_scope=scope)
             candidates = select_candidates(base_config, location_db)[0]
-            header = build_header(base_config)
-            pattern1_idx = header.index("Pattern1")
             rows = build_rows(base_config, candidates)
             assert rows, "expected at least one generated stop row"
             assert all(pattern1_regex.match(row[pattern1_idx]) for row in rows)
+
+        # The bug report's own reproduction case: specific_days=["M","W","F"]
+        # previously rendered as "-M-W-F-" (interior + edge dashes).
+        base_config.time_window = TimeWindowConfig(
+            mode="randomized", pattern_scope="specific_days", specific_days=["M", "W", "F"]
+        )
+        candidates = select_candidates(base_config, location_db)[0]
+        rows = build_rows(base_config, candidates)
+        assert rows, "expected at least one generated stop row"
+        assert all(pattern1_regex.match(row[pattern1_idx]) for row in rows)
+        assert all(row[pattern1_idx] == "MWF" for row in rows)
 
     def test_randomized_mode_always_satisfies_fixed_time_constraint(self, base_config):
         base_config.time_window = TimeWindowConfig(mode="randomized", pattern_scope="week")
