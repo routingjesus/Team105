@@ -2,7 +2,7 @@
 id: SPEC-011
 title: "Optional shape and color generation for stops"
 category: feature
-owner: Tye Lofts                         # git config user.name
+owner: Cursor Agent                      # git config user.name
 authored_by: augmented                # augmented | automated
 ---
 
