@@ -421,10 +421,12 @@ class TestBuildRows:
         header = build_header(base_config)
         symbol_idx = header.index("Symbol")
         color_idx = header.index("Color")
+        size_idx = header.index("Size")
         rows = build_rows(base_config, candidates)
         for row in rows:
             assert row[symbol_idx] == ""
             assert row[color_idx] == ""
+            assert row[size_idx] == ""
 
     def test_shapes_generated_from_allowlist_when_enabled(self, base_config, location_db):
         base_config.generate_shapes = True
@@ -432,10 +434,12 @@ class TestBuildRows:
         header = build_header(base_config)
         symbol_idx = header.index("Symbol")
         color_idx = header.index("Color")
+        size_idx = header.index("Size")
         rows = build_rows(base_config, candidates)
         for row in rows:
             assert row[symbol_idx] in SHAPE_VALUES
             assert row[color_idx] == ""
+            assert row[size_idx] == "28"
 
     def test_colors_generated_from_allowlist_when_enabled(self, base_config, location_db):
         base_config.generate_colors = True
@@ -443,10 +447,12 @@ class TestBuildRows:
         header = build_header(base_config)
         symbol_idx = header.index("Symbol")
         color_idx = header.index("Color")
+        size_idx = header.index("Size")
         rows = build_rows(base_config, candidates)
         for row in rows:
             assert row[symbol_idx] == ""
             assert row[color_idx] in COLOR_VALUES
+            assert row[size_idx] == "28"
 
     def test_shapes_and_colors_both_generated_when_both_enabled(self, base_config, location_db):
         base_config.generate_shapes = True
@@ -455,10 +461,12 @@ class TestBuildRows:
         header = build_header(base_config)
         symbol_idx = header.index("Symbol")
         color_idx = header.index("Color")
+        size_idx = header.index("Size")
         rows = build_rows(base_config, candidates)
         for row in rows:
             assert row[symbol_idx] in SHAPE_VALUES
             assert row[color_idx] in COLOR_VALUES
+            assert row[size_idx] == "28"
 
 
 class TestCoordinateCarryThrough:
