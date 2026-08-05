@@ -44,3 +44,26 @@ entries:
     tags: [directroute, location-db, data-hygiene, stop-file]
     date: 2026-08-04
     source_spec: SPEC-003
+
+  - type: pattern_discovered
+    summary: "Stop-file column headers are aliasable independent of row assembly; check ALIAS_FIELD_MAP/build_header before adding new alias mechanics"
+    context: >
+      backend/schemas/stop_config.py's ALIAS_FIELD_MAP is the single source
+      of truth for which stop-file columns accept a user-supplied display
+      alias (currently Name, Contact, Phone, ID1, ID2, ID3, Address_2).
+      backend/generators/stop.py's build_header() applies aliases via
+      _alias(aliases, key, default) (falls back to the technical name when
+      blank/None); build_rows() always keys row cells by the canonical
+      column name (e.g. "ID2"), never by the aliased header text, so
+      aliasing a header is guaranteed display-only. The golden template
+      already ships one non-technical default header ("Store #" for the
+      ID1 slot), establishing that aliased headers are safe for DirectRoute
+      import, not new risk surface. Before adding aliasing for a new column
+      or building a parallel rename mechanism, check ALIAS_FIELD_MAP and
+      build_header() first — SPEC-010 found the ID2/ID3 mechanism already
+      shipped end-to-end from SPEC-002 and only needed a wizard UX/gating
+      change (promoting the fields out of an advanced toggle), not new
+      backend work.
+    tags: [directroute, stop-file, file-format, aliasing]
+    date: 2026-08-05
+    source_spec: SPEC-010
