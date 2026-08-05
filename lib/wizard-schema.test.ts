@@ -10,7 +10,7 @@ import {
 
 const validValues: WizardFormValues = {
   ...defaultWizardValues,
-  depots: [{ address: "1 Warehouse Way", city: "Salt Lake City", state: "UT", zip: "84101", trucks: 5 }],
+  depots: [{ ...defaultWizardValues.depots[0], address: "1 Warehouse Way", city: "Salt Lake City", state: "UT", zip: "84101" }],
 };
 
 describe("isValidTimeWindow", () => {
