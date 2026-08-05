@@ -93,3 +93,33 @@ entries:
     tags: [directroute, stop-file, file-format, aliasing]
     date: 2026-08-05
     source_spec: SPEC-010
+
+  - type: assumption_confirmed
+    summary: "DRProject.config is UTF-8 XML with root AppSettings; wizard-driven content lives under Configuration/Stop"
+    context: >
+      DirectRoute expects a file named exactly DRProject.config inside each
+      user data directory (File → Preferences). The golden template at
+      fixtures/drproject-config/DRProject.config confirms structure: root
+      <AppSettings> with <Configuration> (stop field aliases and
+      Quantities) plus a large <Preferences> tree (routing defaults,
+      geocoding, map settings). Depot addresses are not in this file — it
+      maps stop-file column display names, not routing geography. Substitution
+      targets align with AliasConfig and VolumeSpec from stop/truck schemas.
+      backend/generators/drproject_config.py loads backend/data/DRProject.config
+      at runtime; tests compare against fixtures/drproject-config/.
+    tags: [directroute, drproject-config, file-format]
+    date: 2026-08-05
+    source_spec: SPEC-012
+
+  - type: constraint_found
+    summary: "Machine-specific paths and DRTrack credentials must be cleared in generated DRProject.config output"
+    context: >
+      The owner template contained local filesystem paths (RecentFilesList,
+      DistanceFile, MergeDirectoryAndFileSettings) and encrypted DRTrack
+      credentials. These are environment-specific and must always be emitted
+      empty in generated output regardless of wizard input — same data-hygiene
+      principle as scrubbing proprietary paths from bundled fixtures before
+      commit.
+    tags: [directroute, drproject-config, data-hygiene]
+    date: 2026-08-05
+    source_spec: SPEC-012
