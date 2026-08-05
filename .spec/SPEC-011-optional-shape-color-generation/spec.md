@@ -47,17 +47,14 @@ import.
   SPEC-001/002/003), which is not reachable from this environment (fetch
   times out — Notion requires authentication this environment doesn't
   have). No other DirectRoute schema catalog exists in the repo.
-- **Waiver**: per this spec's own scope boundary ("do not invent
-  placeholder values"), the correct outcome would be to block on obtaining
-  the real DirectRoute enum from product/DirectRoute documentation. Since
-  that source is unreachable in this execution environment and the user
-  explicitly directed proceeding, this implementation uses the anecdotal
-  in-repo sample values as a placeholder allowlist (see
-  `backend/schemas/stop_config.py::SHAPE_VALUES` /
-  `COLOR_VALUES`), tracked as a waived acceptance criterion in
-  `meta.yaml`. Replacing these constants with the authoritative
-  DirectRoute list is a drop-in follow-up once that source is available —
-  no other code changes should be needed.
+- **Resolved**: the owner located an authoritative DirectRoute reference
+  document (an internal supplemental handout, not tracked in this repo)
+  containing the complete "Optional Colors" (48 values) and "Optional
+  Shapes" (35 values) tables. `backend/schemas/stop_config.py::SHAPE_VALUES`
+  / `COLOR_VALUES` were updated to the full authoritative lists before
+  merge, superseding the earlier 3-value anecdotal placeholder (which,
+  coincidentally, was a subset of the real list). No waiver remains — see
+  `meta.yaml` learnings for provenance.
 - Reviewed the closest existing "optional stop-level generation toggle"
   pattern: `EqCodeConfig`/`ConsolidationConfig` in
   `backend/schemas/stop_config.py`, wired through `StopConfig`,
@@ -76,10 +73,8 @@ import.
 
 - The authoritative list of supported DirectRoute shapes/colors must be
   sourced from the DirectRoute repo/documentation during research — do not
-  invent placeholder values. **Waived** (see Research) — this
-  implementation uses anecdotal in-repo sample values as a placeholder
-  allowlist, documented in `meta.yaml` as a waived acceptance criterion,
-  pending the real DirectRoute enum.
+  invent placeholder values. **Satisfied** (see Research) — the full
+  authoritative list was located and used; no waiver remains.
 - Does not add shape/color support to the truck file (SPEC-001), only the
   stop file — `backend/generators/truck.py` is not modified.
 
