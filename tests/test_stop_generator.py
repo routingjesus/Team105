@@ -200,6 +200,33 @@ class TestTimeWindow:
         rows = build_rows(base_config, candidates)
         assert all(row[open1_idx] == "0000" for row in rows)
 
+    def test_generated_pattern1_column_matches_day_letters_only_regex(self, base_config, location_db):
+        # AC3 (SPEC-007): Pattern1 column values across generated output must
+        # match ^[SMTWRFA]*$ -- no dash or other stray character, for every
+        # pattern_scope choice.
+        import re
+
+        pattern1_regex = re.compile(r"^[SMTWRFA]*$")
+        header = build_header(base_config)
+        pattern1_idx = header.index("Pattern1")
+        for scope in ("week", "weekday", "weekend", "random"):
+            base_config.time_window = TimeWindowConfig(mode="randomized", pattern_scope=scope)
+            candidates = select_candidates(base_config, location_db)[0]
+            rows = build_rows(base_config, candidates)
+            assert rows, "expected at least one generated stop row"
+            assert all(pattern1_regex.match(row[pattern1_idx]) for row in rows)
+
+        # The bug report's own reproduction case: specific_days=["M","W","F"]
+        # previously rendered as "-M-W-F-" (interior + edge dashes).
+        base_config.time_window = TimeWindowConfig(
+            mode="randomized", pattern_scope="specific_days", specific_days=["M", "W", "F"]
+        )
+        candidates = select_candidates(base_config, location_db)[0]
+        rows = build_rows(base_config, candidates)
+        assert rows, "expected at least one generated stop row"
+        assert all(pattern1_regex.match(row[pattern1_idx]) for row in rows)
+        assert all(row[pattern1_idx] == "MWF" for row in rows)
+
     def test_randomized_mode_always_satisfies_fixed_time_constraint(self, base_config):
         base_config.time_window = TimeWindowConfig(mode="randomized", pattern_scope="week")
         rng = random.Random(2)
@@ -213,13 +240,29 @@ class TestTimeWindow:
 
     def test_build_pattern1_weekday_scope_excludes_weekend(self):
         pattern = build_pattern1("weekday", None, random.Random(0))
-        assert pattern[0] == "-"  # Sunday
-        assert pattern[-1] == "-"  # Saturday ("A")
-        assert pattern[1:6] == "MTWRF"
+        assert pattern == "MTWRF"
 
     def test_build_pattern1_specific_days(self):
         pattern = build_pattern1("specific_days", ["M", "W", "F"], random.Random(0))
-        assert pattern == "-M-W-F-"
+        assert pattern == "MWF"
+
+    def test_build_pattern1_never_contains_dash(self):
+        # Regression (SPEC-007): Pattern1 must contain only SMTWRFA day
+        # letters, never a leading/trailing/interior separator dash.
+        import re
+
+        for scope, specific_days in [
+            ("week", None),
+            ("weekday", None),
+            ("weekend", None),
+            ("specific_days", ["M", "W", "F"]),
+            ("specific_days", []),
+            ("random", None),
+        ]:
+            rng = random.Random(0)
+            for _ in range(10):
+                pattern = build_pattern1(scope, specific_days, rng)
+                assert re.fullmatch(r"[SMTWRFA]*", pattern), (scope, pattern)
 
 
 class TestSelectedStops:

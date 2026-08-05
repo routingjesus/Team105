@@ -115,7 +115,7 @@ def achievable_frequency_values(frequency_values: list[float], weeks: int) -> li
 
 
 def build_pattern1(scope: str, specific_days: list[str] | None, rng: random.Random) -> str:
-    """Render a 7-char SMTWRFA pattern string; '-' marks an inactive day."""
+    """Render the active day letters only, in SMTWRFA order; no separators for inactive days."""
     if scope == "specific_days":
         active = set(specific_days or [])
     elif scope == "random":
@@ -124,7 +124,7 @@ def build_pattern1(scope: str, specific_days: list[str] | None, rng: random.Rand
         active = set(rng.sample(all_days, k))
     else:
         active = set(PATTERN_SCOPE_DAYS[scope])
-    return "".join(letter if letter in active else "-" for letter in PATTERN_DAY_LETTERS)
+    return "".join(letter for letter in PATTERN_DAY_LETTERS if letter in active)
 
 
 def build_time_window(config: StopConfig, rng: random.Random) -> tuple[int, int, str]:
