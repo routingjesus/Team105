@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: in_progress
+status: done
 created: 2026-08-05
 updated: 2026-08-05
 
@@ -63,4 +63,30 @@ learnings:
     tags: [directroute, drproject-config, data-hygiene]
     date: 2026-08-05
     source_spec: SPEC-012
-ready_sha: "e4cb7fb7b1dc0a8a5a69f40bbadea187d7feec97"
+  - type: pattern_discovered
+    summary: "DRProject.config generator reuses StopConfig as request body — no parallel schema needed"
+    context: >
+      The generator only reads aliases and volumes, both already on StopConfig
+      after truck generation. Accepting StopConfig directly for
+      /api/drproject-config/{generate,download} avoids a third request-shape
+      and lets the wizard call generateDrprojectConfig(stopConfig) with the
+      same object passed to generateStops.
+    tags: [directroute, drproject-config, api-contract]
+    date: 2026-08-05
+    source_spec: SPEC-012
+  - type: decision_made
+    summary: "Template lives in backend/data/DRProject.config at runtime; fixtures/ holds the test golden copy"
+    context: >
+      Mirrors location_db.xlsx deployment pattern — runtime generator reads
+      backend/data/, tests compare against fixtures/drproject-config/ via
+      injectable template_root parameter.
+    tags: [directroute, drproject-config, deployment]
+    date: 2026-08-05
+    source_spec: SPEC-012
+completion:
+  date: 2026-08-05
+  acceptance_criteria_waived:
+    - acceptance_criteria: "AC5 — DirectRoute manual smoke test after copying DRProject.config into a user data directory"
+      rationale: "Requires a licensed DirectRoute 26.x installation; same manual-only acceptance style as SPEC-001 AC7 and SPEC-003 AC8."
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/17"
