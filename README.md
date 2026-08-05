@@ -1,20 +1,39 @@
 # Team105 — Dataset Creation Wizard
 
 Generates synthetic, import-ready DirectRoute datasets: a tab-delimited
-`.TRUCK` truck file and an `.XLSX` stop file, driven by a guided wizard.
-Bootcamp capstone for AI Bootcamp Cohort 3, Team 105.
+`.TRUCK` truck file, an `.XLSX` stop file, and a `DRProject.config`
+project file, driven by a guided wizard. Bootcamp capstone for AI Bootcamp
+Cohort 3, Team 105.
 
 ## Status
 
-| Piece | Spec | State |
-|-------|------|-------|
-| Truck file generator + API | SPEC-001 | Done ([PR #2](https://github.com/routingjesus/Team105/pull/2)) |
-| Stop file generator | SPEC-002 | Done ([PR #3](https://github.com/routingjesus/Team105/pull/3)) |
-| Wizard UI (Next.js) | SPEC-003 | Done ([PR #5](https://github.com/routingjesus/Team105/pull/5)) |
-| Local runner + shareable link | SPEC-004 | In review ([PR #6](https://github.com/routingjesus/Team105/pull/6)) |
+All twelve specs are complete. Highlights:
+
+| Area | Spec | PR |
+|------|------|-----|
+| Truck file generator + API | SPEC-001 | [#2](https://github.com/routingjesus/Team105/pull/2) |
+| Stop file generator + API | SPEC-002 | [#3](https://github.com/routingjesus/Team105/pull/3) |
+| Wizard UI (Next.js) | SPEC-003 | [#5](https://github.com/routingjesus/Team105/pull/5) |
+| Local one-command runner + share link | SPEC-004 | [#6](https://github.com/routingjesus/Team105/pull/6) |
+| Stop lat/long carry-through fix | SPEC-005 | [#9](https://github.com/routingjesus/Team105/pull/9) |
+| Fractional frequency validation | SPEC-006 | [#13](https://github.com/routingjesus/Team105/pull/13) |
+| Pattern column stray-dash fix | SPEC-007 | [#12](https://github.com/routingjesus/Team105/pull/12) |
+| Volume range variance fix | SPEC-008 | [#10](https://github.com/routingjesus/Team105/pull/10) |
+| Time-window business-hours bias | SPEC-009 | [#11](https://github.com/routingjesus/Team105/pull/11) |
+| ID2/ID3 column alias prompts | SPEC-010 | [#15](https://github.com/routingjesus/Team105/pull/15) |
+| Optional stop shape/color | SPEC-011 | [#14](https://github.com/routingjesus/Team105/pull/14) |
+| DRProject.config generator + download | SPEC-012 | [#17](https://github.com/routingjesus/Team105/pull/17) |
 
 Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
-`spec-dashboard` skill) for current status.
+`spec-dashboard` skill) for the full lifecycle view.
+
+### What's next
+
+The core wizard scope is complete. Sensible follow-ons:
+
+- **Demo to a reviewer:** `.\run-local.cmd -Share` prints a public tunnel URL.
+- **New work:** run `create-spec` to scaffold SPEC-013 or another backlog item.
+- **DirectRoute verification:** run the [smoke test checklist](#directroute-smoke-test) once on a machine with DirectRoute 26.x installed.
 
 ## Team setup (one command)
 
@@ -111,10 +130,12 @@ uv pip install -r backend/requirements.txt
 
 Endpoints (same request body per generator, two delivery shapes each):
 
-- `POST /api/trucks/generate` / `POST /api/stops/generate` — JSON metadata
-  with base64-encoded file content
-- `POST /api/trucks/download` / `POST /api/stops/download` — raw file
-  bytes with `Content-Disposition`
+- `POST /api/trucks/generate` / `POST /api/stops/generate` /
+  `POST /api/drproject-config/generate` — JSON metadata with base64-encoded
+  file content
+- `POST /api/trucks/download` / `POST /api/stops/download` /
+  `POST /api/drproject-config/download` — raw file bytes with
+  `Content-Disposition`
 
 Interactive docs at `http://127.0.0.1:8000/docs`.
 
@@ -126,9 +147,9 @@ at it, set a comma-separated `WIZARD_ALLOWED_ORIGINS` before launching, e.g.
 ## Wizard UI (frontend)
 
 A Next.js (App Router) wizard walks a user through route and stop questions,
-previews the dataset, then generates and downloads both files via the API
-above. It consumes the backend contract directly — no file formats are exposed
-to the user.
+previews the dataset, then generates and downloads all three files via the
+API above. It consumes the backend contract directly — no file formats are
+exposed to the user.
 
 ```powershell
 # Node is not preinstalled on bootcamp hosts; install once:
@@ -147,9 +168,11 @@ npm run lint
 npm test
 ```
 
-The wizard calls `POST /api/trucks/generate` then `POST /api/stops/generate`
-(stop generation consumes the truck response), decodes the base64 file content
-from each response, and offers one download button per file. Set
+The wizard calls `POST /api/trucks/generate`, then `POST /api/stops/generate`
+(stop generation consumes the truck response), then
+`POST /api/drproject-config/generate` (same `StopConfig` body), decodes the
+base64 file content from each response, and offers one download button per
+file. Set
 `NEXT_PUBLIC_API_BASE_URL` to the deployed API origin — its value is inlined at
 `npm run build` time, so set it *before* building, not after. When the API is a
 different origin, add that origin to the backend's `WIZARD_ALLOWED_ORIGINS`.
@@ -189,14 +212,33 @@ state directly and does not need the depot to resolve.
 
 ### Import into DirectRoute
 
-The wizard produces two files:
+The wizard produces three files:
 
 - `fleet.truck` — tab-delimited truck/fleet file (SPEC-001)
 - `stops.xlsx` — stop file (SPEC-002)
+- `DRProject.config` — DirectRoute project configuration XML (SPEC-012)
 
-Download both from the final wizard step, then import them into DirectRoute
-(trucks first, then stops) to build a routing solution. This end-to-end import
-is the manual acceptance step (AC8) that can't be automated here.
+Download all three from the final wizard step. Copy `DRProject.config` into
+the DirectRoute user data directory configured under **File → Preferences**
+(this app cannot write to that path from the browser). Then import the truck
+and stop files into DirectRoute (trucks first, then stops) to build a routing
+solution.
+
+### DirectRoute smoke test
+
+Run this once on a machine with DirectRoute 26.x installed to close the
+manual acceptance criteria waived in CI:
+
+1. Start the wizard: `.\run-local.cmd`
+2. Walk through with the [known-good demo depot](#known-good-demo-depot)
+3. Download all three files from the final step
+4. Copy `DRProject.config` into your DirectRoute user data directory
+5. Open DirectRoute — confirm the directory loads without config errors
+6. Import the truck file, then the stop file — confirm no schema exceptions
+
+The automated test suite covers the generator chain
+(`tests/test_three_artifact_integration.py`) but cannot launch DirectRoute
+itself.
 
 ## Backend tests
 
