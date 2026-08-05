@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: draft                           # draft | research | ready | in_progress | blocked | done | cancelled | superseded
+status: research                           # draft | research | ready | in_progress | blocked | done | cancelled | superseded
 created: 2026-08-04
 updated: 2026-08-04
 
@@ -14,10 +14,9 @@ updated: 2026-08-04
 #   - spec: "SPEC-030"
 #     until_status: "ready"            # required; ready | done
 
-# Coordination (optional — blast radius classification for parallel work)
-# coordination:
-#   blast_radius: ""                   # structural | isolated | mixed
-#   parallel_safe:                     # true only when blast_radius is isolated; do not set independently
+coordination:
+  blast_radius: isolated
+  parallel_safe: true
 
 # Branching (optional — non-default branch topology for stacked or integration workflows)
 # branching:
