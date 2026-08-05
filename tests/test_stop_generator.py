@@ -496,6 +496,40 @@ class TestBuildRows:
             assert row[symbol_idx] == ""
             assert row[color_idx] == ""
 
+    def test_consolidation_shares_symbol_only_when_shapes_enabled(self, base_config, location_db):
+        # SPEC-015 AC1 (shapes and/or): shapes-only under consolidation.
+        n = 3
+        base_config.consolidation = ConsolidationConfig(enabled=True, lines_per_customer=n)
+        base_config.generate_shapes = True
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        symbol_idx = header.index("Symbol")
+        color_idx = header.index("Color")
+        rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
+        for i in range(0, len(rows), n):
+            group = rows[i : i + n]
+            symbols = {row[symbol_idx] for row in group}
+            assert len(symbols) == 1
+            assert next(iter(symbols)) in SHAPE_VALUES
+            assert all(row[color_idx] == "" for row in group)
+
+    def test_consolidation_shares_color_only_when_colors_enabled(self, base_config, location_db):
+        # SPEC-015 AC1 (shapes and/or): colors-only under consolidation.
+        n = 3
+        base_config.consolidation = ConsolidationConfig(enabled=True, lines_per_customer=n)
+        base_config.generate_colors = True
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        symbol_idx = header.index("Symbol")
+        color_idx = header.index("Color")
+        rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
+        for i in range(0, len(rows), n):
+            group = rows[i : i + n]
+            colors = {row[color_idx] for row in group}
+            assert len(colors) == 1
+            assert next(iter(colors)) in COLOR_VALUES
+            assert all(row[symbol_idx] == "" for row in group)
+
 
 class TestCoordinateCarryThrough:
     """SPEC-005 regression: Latitude/Longitude must survive from location_db
