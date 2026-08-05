@@ -125,7 +125,9 @@ function Install-NodeDir {
 function Install-Uv {
     Write-Step "uv not found - installing (user-local, no admin)"
     try {
-        & powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"
+        # Out-Host: show installer progress without capturing its stdout into
+        # this function's return value (callers expect a single path string).
+        & powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex" | Out-Host
     } catch {
         Stop-WithError "The uv installer failed ($($_.Exception.Message))." `
             "Install uv per https://docs.astral.sh/uv/getting-started/installation/ so uv.exe is on PATH or in '%USERPROFILE%\.local\bin', then re-run."
@@ -154,12 +156,28 @@ function Install-Cloudflared {
     return $dest
 }
 
-# True when .venv exists and can already import the backend's runtime deps, so
-# no uv install/venv creation is needed (the API runs via .venv's python).
+# True when .venv exists and can import the API's full runtime chain, so no uv
+# install/venv creation is needed (the API runs via .venv's python). Probes
+# backend.main - exactly what uvicorn loads - so a half-installed venv from an
+# interrupted `uv pip install` (e.g. fastapi present but pandas missing) is
+# repaired instead of misread as healthy. backend/ is not installed into the
+# venv, so the import only resolves with the repo root as CWD; Push-Location
+# keeps the probe correct when -CheckOnly runs from another directory.
 function Test-BackendReady {
     if (-not (Test-Path $VenvPython)) { return $false }
-    & $VenvPython -c "import uvicorn, fastapi" 2>$null
-    return ($LASTEXITCODE -eq 0)
+    Push-Location $RepoRoot
+    # Under $ErrorActionPreference='Stop', PS 5.1 turns redirected native
+    # stderr (the ImportError traceback) into a terminating NativeCommandError;
+    # relax it so a failing probe returns $false instead of crashing.
+    $eap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $VenvPython -c "import backend.main" 2>$null
+        return ($LASTEXITCODE -eq 0)
+    } finally {
+        $ErrorActionPreference = $eap
+        Pop-Location
+    }
 }
 
 function Ensure-Backend {
@@ -197,10 +215,21 @@ function Ensure-Backend {
     }
 }
 
+# True when npm install completed: folder existence alone is not enough - an
+# interrupted `npm install` can leave node_modules without the .bin\next.cmd
+# shim that `npm run build/start/dev` resolve, dying later with
+# "'next' is not recognized".
+function Test-FrontendReady {
+    return [bool](Test-Path (Join-Path $RepoRoot 'node_modules\.bin\next.cmd'))
+}
+
 function Ensure-FrontendDeps($npmCmd) {
-    if (Test-Path (Join-Path $RepoRoot 'node_modules')) {
-        Write-Ok "node_modules present"
+    if (Test-FrontendReady) {
+        Write-Ok "node_modules present (next shim linked)"
         return
+    }
+    if (Test-Path (Join-Path $RepoRoot 'node_modules')) {
+        Write-Warn2 "node_modules incomplete (next shim missing) - re-running npm install"
     }
     Write-Step "Installing frontend dependencies (npm install)"
     Push-Location $RepoRoot
@@ -365,16 +394,20 @@ if ($CheckOnly) {
     if (Test-BackendReady) {
         Write-Ok "Backend venv + dependencies present (uv not needed)"
     } else {
+        if (Test-Path (Join-Path $RepoRoot '.venv')) {
+            Write-Warn2 ".venv incomplete (backend imports fail) - launcher would reinstall backend deps"
+        } else {
+            Write-Warn2 ".venv absent - launcher would create it + install backend deps"
+        }
         $uv = Find-Uv
         if ($uv) { Write-Ok "uv found: $uv (will build/refresh .venv)" }
-        else { Write-Warn2 "uv NOT found and .venv incomplete - launcher would install uv, then build .venv + backend deps" }
+        else { Write-Warn2 "uv NOT found - launcher would install uv first" }
     }
 
-    if (Test-Path (Join-Path $RepoRoot '.venv')) { Write-Ok ".venv present" }
-    else { Write-Warn2 ".venv absent - launcher would create it + install backend deps" }
-
-    if (Test-Path (Join-Path $RepoRoot 'node_modules')) { Write-Ok "node_modules present" }
-    else { Write-Warn2 "node_modules absent - launcher would run npm install" }
+    if (Test-FrontendReady) { Write-Ok "node_modules present (next shim linked)" }
+    elseif (Test-Path (Join-Path $RepoRoot 'node_modules')) {
+        Write-Warn2 "node_modules incomplete (next shim missing) - launcher would run npm install"
+    } else { Write-Warn2 "node_modules absent - launcher would run npm install" }
 
     if (Test-PortFree $PreferredApiPort) { Write-Ok "API port $PreferredApiPort is free" }
     else { Write-Warn2 "API port $PreferredApiPort is busy - launcher would probe a random free port" }
