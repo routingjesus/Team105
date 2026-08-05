@@ -92,6 +92,8 @@ export function buildStopConfig(
         ? { enabled: true, lines_per_customer: values.linesPerCustomer }
         : null,
     aliases: buildAliases(values),
+    generate_shapes: values.generateShapes,
+    generate_colors: values.generateColors,
     seed: values.seed,
   };
   return config;

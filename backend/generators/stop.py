@@ -16,7 +16,14 @@ from typing import Callable
 
 import pandas as pd
 
-from backend.schemas.stop_config import ALIAS_FIELD_MAP, PATTERN_DAY_LETTERS, StopConfig, validate_time_window
+from backend.schemas.stop_config import (
+    ALIAS_FIELD_MAP,
+    COLOR_VALUES,
+    PATTERN_DAY_LETTERS,
+    SHAPE_VALUES,
+    StopConfig,
+    validate_time_window,
+)
 from backend.schemas.truck_config import _validate_ascii
 from backend.services.spatial import (
     filter_by_radius,
@@ -294,6 +301,10 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
                 "Pattern1": pattern1,
                 "Frequency": f"{frequency:g}",
             }
+            if config.generate_shapes:
+                row_by_col["Symbol"] = rng.choice(SHAPE_VALUES)
+            if config.generate_colors:
+                row_by_col["Color"] = rng.choice(COLOR_VALUES)
             row = []
             for col in COLUMN_ORDER:
                 if col == VOLUMES_MARKER:

@@ -20,6 +20,100 @@ FREQUENCY_VALUES: tuple[float, ...] = (7, 6, 5, 4, 3, 2, 1, 0.5, 0.25, 0.125, 0.
 # DirectRoute SMTWRFA convention. "A" stands in for Saturday.
 PATTERN_DAY_LETTERS = "SMTWRFA"
 
+# SPEC-011: DirectRoute draws Symbol ("shape") and Color from a fixed,
+# product-defined list. This is the authoritative "Optional Colors" /
+# "Optional Shapes" allowlist from the owner-supplied DirectRoute
+# supplemental reference document (see SPEC-011's meta.yaml learnings for
+# provenance), superseding the earlier anecdotal placeholder list.
+SHAPE_VALUES: tuple[str, ...] = (
+    "Circle",
+    "Square",
+    "Diamond",
+    "Hdiamond",
+    "Vdiamond",
+    "UpArrow",
+    "DnArrow",
+    "RtArrow",
+    "LfArrow",
+    "Plus",
+    "X",
+    "Asterick",
+    "Truck",
+    "Star1",
+    "Plane",
+    "TruckSW",
+    "TruckNW",
+    "TruckE",
+    "TruckNE",
+    "TruckSE",
+    "TruckS",
+    "TruckN",
+    "Car",
+    "Bus",
+    "Boat",
+    "House",
+    "Church",
+    "School",
+    "Factory",
+    "Tower",
+    "Pin",
+    "Flag",
+    "Cross",
+    "Phone",
+    "Star2",
+    "Star3",
+)
+COLOR_VALUES: tuple[str, ...] = (
+    "Black",
+    "Blue",
+    "Brick",
+    "Chocolate",
+    "Crimson",
+    "Cyan",
+    "DarkBlue",
+    "DarkGray",
+    "DarkGreen",
+    "DarkKhaki",
+    "DarkOlive",
+    "DarkPurple",
+    "DarkRed",
+    "DarkTeal",
+    "Fuchsia",
+    "Gray",
+    "Green",
+    "LemonChiffon",
+    "LightBlue",
+    "LightCyan",
+    "LightGray",
+    "LightGreen",
+    "LightPeach",
+    "LightPink",
+    "LightViolet",
+    "LightYellow",
+    "Lime",
+    "LimeGreen",
+    "Maroon",
+    "MediumBlue",
+    "Navy",
+    "Olive",
+    "Orange",
+    "Orchid",
+    "PaleGreen",
+    "PaleTurquoise",
+    "Peach",
+    "Pink",
+    "Purple",
+    "Red",
+    "RoyalBlue",
+    "SaddleBrown",
+    "Silver",
+    "Teal",
+    "Turquoise",
+    "Violet",
+    "White",
+    "Yellow",
+)
+
 # Single source of truth for aliasable output columns -> AliasConfig
 # attribute names, reused by both AliasConfig's own validation and
 # backend.generators.stop.build_header's header substitution.
@@ -158,6 +252,8 @@ class StopConfig(BaseModel):
     eq_code: EqCodeConfig | None = None
     consolidation: ConsolidationConfig | None = None
     aliases: AliasConfig | None = None
+    generate_shapes: bool = False
+    generate_colors: bool = False
     seed: int = Field(default=0)
 
     @field_validator("frequency_values")
