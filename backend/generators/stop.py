@@ -165,6 +165,8 @@ class SelectedStop:
     city: str
     state: str
     zip: str
+    latitude: float
+    longitude: float
 
 
 def _clean(value) -> str:
@@ -190,6 +192,8 @@ def selected_stops_from_candidates(candidates: pd.DataFrame) -> list[SelectedSto
                 city=_clean(row["City"]),
                 state=_clean(row["State"]),
                 zip=_clean(row["Zip"]),
+                latitude=float(row["Latitude"]),
+                longitude=float(row["Longitude"]),
             )
         )
     return stops
@@ -247,6 +251,8 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
                 "City": stop.city,
                 "State": stop.state,
                 "Zip": stop.zip,
+                "Longitude": f"{stop.longitude:.6f}",
+                "Latitude": f"{stop.latitude:.6f}",
                 "FixedTime": f"{config.fixed_time_minutes:g}",
                 "EqCode": eq_code,
                 "Open1": str(open1).zfill(4),

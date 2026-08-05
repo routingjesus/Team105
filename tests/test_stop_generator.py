@@ -35,6 +35,7 @@ from backend.services.spatial import load_location_db
 
 SAMPLE_DB_PATH = "fixtures/stop/sample_location_db.xlsx"
 GOLDEN_TEMPLATE_PATH = "fixtures/stop/TEMPLATE_NewConfigStopFile.xls"
+REAL_DB_PATH = "backend/data/location_db.xlsx"
 
 
 @pytest.fixture(scope="module")
@@ -212,7 +213,21 @@ class TestTimeWindow:
 
 class TestSelectedStops:
     def test_id1_falls_back_to_name_when_missing(self):
-        df = pd.DataFrame([{"Name": "Acme Co", "ID1": "", "ID3": "", "Address": "1 St", "City": "X", "State": "OH", "Zip": "1"}])
+        df = pd.DataFrame(
+            [
+                {
+                    "Name": "Acme Co",
+                    "ID1": "",
+                    "ID3": "",
+                    "Address": "1 St",
+                    "City": "X",
+                    "State": "OH",
+                    "Zip": "1",
+                    "Latitude": 39.1,
+                    "Longitude": -82.9,
+                }
+            ]
+        )
         stops = selected_stops_from_candidates(df)
         assert stops[0].id1 == "Acme Co"
 
@@ -277,6 +292,59 @@ class TestBuildRows:
         first = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
         second = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
         assert first == second
+
+
+class TestCoordinateCarryThrough:
+    """SPEC-005 regression: Latitude/Longitude must survive from location_db
+    into the generated output rows, matching the source values exactly."""
+
+    def test_coordinates_match_source_location_db(self, base_config, location_db):
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        rows = build_rows(base_config, candidates)
+        lon_idx = header.index("Longitude")
+        lat_idx = header.index("Latitude")
+        address_idx = header.index("Address")
+
+        by_address = location_db.set_index("Address")
+        for row in rows:
+            assert row[lon_idx] != ""
+            assert row[lat_idx] != ""
+            source = by_address.loc[row[address_idx]]
+            assert float(row[lon_idx]) == pytest.approx(float(source["Longitude"]), abs=1e-6)
+            assert float(row[lat_idx]) == pytest.approx(float(source["Latitude"]), abs=1e-6)
+
+    def test_coordinates_match_source_against_real_location_db(self, base_config):
+        real_db = load_location_db(REAL_DB_PATH)
+        candidates = select_candidates(base_config, real_db)[0]
+        header = build_header(base_config)
+        rows = build_rows(base_config, candidates)
+        lon_idx = header.index("Longitude")
+        lat_idx = header.index("Latitude")
+        address_idx = header.index("Address")
+
+        by_address = real_db.set_index("Address")
+        for row in rows:
+            assert row[lon_idx] != ""
+            assert row[lat_idx] != ""
+            source = by_address.loc[row[address_idx]]
+            assert float(row[lon_idx]) == pytest.approx(float(source["Longitude"]), abs=1e-6)
+            assert float(row[lat_idx]) == pytest.approx(float(source["Latitude"]), abs=1e-6)
+
+    def test_consolidation_shares_coordinates_across_line_items(self, base_config, location_db):
+        base_config.consolidation = ConsolidationConfig(enabled=True, lines_per_customer=3)
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        rows = build_rows(base_config, candidates)
+        lon_idx = header.index("Longitude")
+        lat_idx = header.index("Latitude")
+
+        for i in range(0, len(rows), 3):
+            group = rows[i : i + 3]
+            longitudes = {row[lon_idx] for row in group}
+            latitudes = {row[lat_idx] for row in group}
+            assert len(longitudes) == 1
+            assert len(latitudes) == 1
 
 
 class TestZeroCandidates:
