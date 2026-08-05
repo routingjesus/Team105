@@ -121,11 +121,60 @@ describe("DatasetWizard", () => {
     await screen.findByRole("heading", { name: "Your dataset is ready" });
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(screen.getByText(/DirectRoute user data directory/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Download stops CSV/ })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Branch name/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Download truck file/ }));
     await user.click(screen.getByRole("button", { name: /Download stop file/ }));
     await user.click(screen.getByRole("button", { name: /Download project config/ }));
     expect(clickSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("gates stops CSV download on a non-empty Branch name (SPEC-016)", async () => {
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const u = String(url);
+      if (u.includes("/api/trucks/generate")) return okJson(truckResponse);
+      if (u.includes("/api/stops/generate")) return okJson(stopResponse);
+      if (u.includes("/api/drproject-config/generate")) return okJson(drprojectConfigResponse);
+      if (u.includes("/api/stops-csv/download")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers({
+            "Content-Disposition": 'attachment; filename="stops.csv"',
+            "Content-Type": "text/csv",
+          }),
+          blob: async () => new Blob(["csv"], { type: "text/csv" }),
+        };
+      }
+      throw new Error(`unexpected url ${u}`);
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const user = userEvent.setup();
+    render(<DatasetWizard />);
+    await fillDepot(user);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Stop details" });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Check your answers" });
+    await user.click(screen.getByRole("button", { name: "Generate dataset" }));
+    await screen.findByRole("heading", { name: "Your dataset is ready" });
+
+    await user.click(screen.getByRole("button", { name: /Download stops CSV/ }));
+    expect(await screen.findByText("Required")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("stops-csv"))).toHaveLength(
+      0,
+    );
+
+    await user.type(screen.getByLabelText(/Branch name/i), "ATL01");
+    await user.click(screen.getByRole("button", { name: /Download stops CSV/ }));
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([url]) => String(url).includes("/api/stops-csv/download")),
+      ).toBe(true),
+    );
+    expect(clickSpy).toHaveBeenCalled();
   });
 
   it("maps a backend 422 back onto the owning field and returns to its step (AC5)", async () => {

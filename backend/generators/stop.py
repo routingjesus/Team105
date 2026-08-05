@@ -9,6 +9,7 @@ dynamic segment (here, volume columns) that expands based on the request.
 
 from __future__ import annotations
 
+import csv
 import io
 import random
 from dataclasses import dataclass, field
@@ -341,3 +342,41 @@ def generate_stop_file(config: StopConfig, candidates: pd.DataFrame) -> bytes:
     with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
         df.to_excel(writer, sheet_name="Stop File", index=False)
     return buffer.getvalue()
+
+
+def delete_action_count(n: int) -> int:
+    """Exact Delete row count for N ≥ 1 data rows (SPEC-016).
+
+    Mirrors EQ-code subset math (`max(1, round(N * fraction))`) with
+    fraction 0.1, capped at N so sample stays valid.
+    """
+    if n < 1:
+        return 0
+    return min(n, max(1, round(0.1 * n)))
+
+
+def generate_stop_csv_file(config: StopConfig, candidates: pd.DataFrame, branch: str) -> bytes:
+    """Emit stops as UTF-8-BOM CSV with leading Branch/Action columns (SPEC-016).
+
+    Stop content matches `generate_stop_file` for the same config + seed
+    (same `build_header` / `build_rows` stream). Delete indices use a
+    dedicated `random.Random(config.seed)` after rows are materialized so
+    they stay stable if `build_rows` RNG consumption changes.
+    """
+    rng = random.Random(config.seed)
+    header = build_header(config)
+    rows = build_rows(config, candidates, rng)
+
+    n = len(rows)
+    actions = ["Modify"] * n
+    if n >= 1:
+        k = delete_action_count(n)
+        for idx in random.Random(config.seed).sample(range(n), k):
+            actions[idx] = "Delete"
+
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, dialect=csv.excel)
+    writer.writerow(["Branch", "Action", *header])
+    for i, row in enumerate(rows):
+        writer.writerow([branch, actions[i], *row])
+    return buffer.getvalue().encode("utf-8-sig")

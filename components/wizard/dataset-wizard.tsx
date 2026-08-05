@@ -14,6 +14,7 @@ import { ApiError, generateDrprojectConfig, generateStops, generateTruck, stepFo
 import { buildStopConfig, buildTruckConfig } from "@/lib/build-config";
 import type {
   DrprojectConfigResponse,
+  StopConfig,
   StopGenerationResponse,
   TruckGenerationResponse,
 } from "@/lib/wizard-types";
@@ -34,6 +35,7 @@ interface GenerationResult {
   truck: TruckGenerationResponse;
   stop: StopGenerationResponse;
   drprojectConfig: DrprojectConfigResponse;
+  stopConfig: StopConfig;
 }
 
 /** Earliest wizard step (0 = route, 1 = stop) that owns any of the given field paths. */
@@ -139,7 +141,7 @@ export function DatasetWizard() {
         const stopConfig = buildStopConfig(values, truck);
         const stop = await generateStops(stopConfig);
         const drprojectConfig = await generateDrprojectConfig(stopConfig);
-        setResult({ truck, stop, drprojectConfig });
+        setResult({ truck, stop, drprojectConfig, stopConfig });
         clearPersistedValues();
         advance(3);
       } catch (error) {
@@ -197,6 +199,7 @@ export function DatasetWizard() {
               truck={result.truck}
               stop={result.stop}
               drprojectConfig={result.drprojectConfig}
+              stopConfig={result.stopConfig}
               onReset={handleReset}
             />
           ) : null}

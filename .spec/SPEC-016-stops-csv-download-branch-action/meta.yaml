@@ -39,11 +39,15 @@ coordination:
 #   pull_requests:
 #     - "https://github.com/..."
 
-# Learnings (add during and after execution)
-# learnings:
-#   - type: pattern_discovered          # See references/spec-format.md for all types
-#     summary: ""
-#     context: ""
-#     tags: []
-#     date: 2026-08-05
+learnings:
+  - type: pattern_discovered
+    summary: "Dedicated Random(seed) after build_rows keeps Delete indices stable when row-builder RNG consumption changes; matching eq_code math with min(N, max(1, round(0.1*N)))."
+    context: "SPEC-016 CSV Action column selection"
+    tags: [rng, csv, stop-generator]
+    date: 2026-08-05
+  - type: gotcha
+    summary: "csv.writer(StringIO(newline=''), dialect=csv.excel) preserves CRLF; utf-8-sig encode for Excel BOM. Plumb stopConfig into Download — do not persist Branch in wizard form."
+    context: "SPEC-016 CSV dialect and download-time Branch"
+    tags: [csv, frontend, api-contracts]
+    date: 2026-08-05
 ready_sha: "01e09120da92628516ca954c6269db12eb0ea020"

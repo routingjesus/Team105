@@ -141,6 +141,21 @@ export interface StopGenerationResponse {
   stop_file_base64: string;
 }
 
+// --- Stops CSV request/response (SPEC-016) ---
+
+export interface StopCsvRequest extends StopConfig {
+  branch: string;
+}
+
+export interface StopCsvGenerationResponse {
+  candidate_count: number;
+  selected_stop_count: number;
+  output_row_count: number;
+  seed: number;
+  filename: string;
+  stop_csv_file_base64: string;
+}
+
 // --- DRProject.config response (backend/schemas/drproject_config.py) ---
 
 export interface DrprojectConfigResponse {
