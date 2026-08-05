@@ -211,9 +211,16 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
     """Data rows, one (or more, if consolidation is enabled) per selected stop."""
     rng = rng if rng is not None else random.Random(config.seed)
     achievable = achievable_frequency_values(config.frequency_values, config.weeks)
-    if not achievable:
+    unfit = [value for value in config.frequency_values if value not in achievable]
+    if unfit:
+        # A *partial* mismatch is just as unsafe as a total one: silently
+        # dropping any requested value would collapse rng.choice() onto a
+        # narrower set than the caller asked for (AC #2 "no silent
+        # clamping"), so any non-empty `unfit` -- not just an empty
+        # `achievable` -- must reject rather than proceed.
         raise FrequencyConsistencyError(
-            f"None of {config.frequency_values} fit within a {config.weeks}-week routing horizon"
+            f"Requested frequency value(s) {unfit} do not fit within a {config.weeks}-week "
+            "routing horizon; increase weeks or remove these values from frequency_values."
         )
 
     stops = selected_stops_from_candidates(candidates)

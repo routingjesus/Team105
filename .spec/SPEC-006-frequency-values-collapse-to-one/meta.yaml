@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: ready
+status: done
 created: 2026-08-04
 updated: 2026-08-04
 
@@ -46,3 +46,38 @@ coordination:
 #     tags: []
 #     date: 2026-08-04
 ready_sha: "9677b2012dcfd6993e7d81634dd88a4e510f301f"
+
+completion:
+  date: 2026-08-04
+  pull_requests: []
+
+learnings:
+  - type: pattern_discovered
+    summary: >
+      "Partial subset, not just empty subset" is the right trigger for a
+      silent-clamping guard. The prior empty-list check in
+      achievable_frequency_values()'s caller only caught the total-failure
+      case (nothing fits); the real bug was any strict subset silently
+      narrowing rng.choice()'s options below what the caller requested.
+    context: >
+      backend/generators/stop.py build_rows() now raises
+      FrequencyConsistencyError whenever any requested frequency_values
+      entry is absent from the achievable set, not only when achievable is
+      empty. Reusing the existing exception type kept the API error-surface
+      convention (main.py's 422 mapping) unchanged.
+    tags: [validation, silent-failure, stop-generator]
+    date: 2026-08-04
+  - type: pattern_discovered
+    summary: >
+      Subset-membership assertions on stochastic output are a recurring
+      false-green pattern in this generator's test suite (this is the third
+      instance after Open1/Close1 falsy-zero and lat/long passthrough).
+    context: >
+      test_frequency_values_come_from_requested_subset passed even when
+      every row was Frequency=1, because `seen <= set(requested)` is true
+      for any subset including a singleton. Added a companion test that
+      asserts the specific fractional value (0.5) is actually present with
+      a fixed seed, per the ledger's existing "assert exact values, not
+      just presence/subset" convention for this generator.
+    tags: [testing, stop-generator, regression-proofing]
+    date: 2026-08-04
