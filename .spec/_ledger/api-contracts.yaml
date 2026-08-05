@@ -29,3 +29,18 @@ entries:
     tags: [api-contract, fastapi, cors, frontend-integration]
     date: 2026-08-04
     source_spec: SPEC-003
+
+  - type: pattern_discovered
+    summary: "Third artifact generators can reuse StopConfig as the request body — no parallel schema needed"
+    context: >
+      SPEC-012's DRProject.config generator only reads aliases and volumes,
+      both already on StopConfig after truck generation. Accepting StopConfig
+      directly for POST /api/drproject-config/{generate,download} avoids a
+      third request shape and lets the wizard call
+      generateDrprojectConfig(stopConfig) with the same object passed to
+      generateStops. When a new artifact derives from wizard answers already
+      captured on an existing config model, extend the paired-endpoint pattern
+      with that model before inventing a parallel Pydantic schema.
+    tags: [api-contract, fastapi, file-delivery, drproject-config]
+    date: 2026-08-05
+    source_spec: SPEC-012
