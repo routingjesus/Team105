@@ -1,7 +1,7 @@
 schema_version: "2026.04"
-status: research                           # draft | research | ready | in_progress | blocked | done | cancelled | superseded
+status: ready
 created: 2026-08-04
-updated: 2026-08-04
+updated: 2026-08-05
 
 # Origin (optional — informational, not a dependency)
 # source: "https://..."                 # Shareable origin breadcrumb, never a local filesystem path like /home/... or /Users/...
@@ -45,3 +45,4 @@ coordination:
 #     context: ""
 #     tags: []
 #     date: 2026-08-04
+ready_sha: "77cf428d5302f7fac3af6b7cf164e9bdaa0253af"
