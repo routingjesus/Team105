@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: in_progress
+status: done
 created: 2026-08-05
 updated: 2026-08-05
 
@@ -39,11 +39,32 @@ coordination:
 #   pull_requests:
 #     - "https://github.com/..."
 
-# Learnings (add during and after execution)
-# learnings:
-#   - type: pattern_discovered          # See references/spec-format.md for all types
-#     summary: ""
-#     context: ""
-#     tags: []
-#     date: 2026-08-05
 ready_sha: "01e09120da92628516ca954c6269db12eb0ea020"
+
+learnings:
+  - type: assumption_confirmed
+    summary: >
+      Hoisting Symbol/Color draws to per-stop scope (alongside eq_code /
+      volume_cells) is sufficient; no identity key or schema change needed.
+    context: >
+      build_rows already expands consolidation lines from one SelectedStop;
+      drawing once before the inner loop matches Address/FixedTime sharing
+      and preserves SPEC-011 seed streams when lines_per_customer == 1.
+    tags: [stop-generator, consolidation, shape, color]
+    date: 2026-08-05
+    source_spec: SPEC-015
+  - type: pattern_discovered
+    summary: >
+      Consolidation visual-marker tests must assert within-stride equality
+      (len({Symbol})==1), not only allowlist membership — SPEC-011 row-level
+      checks would green even when line items differed.
+    context: >
+      tests/test_stop_generator.py::test_consolidation_shares_symbol_and_color_across_line_items
+      follows the same stride grouping as coordinate/ID2 consolidation tests.
+    tags: [testing, consolidation, false-green]
+    date: 2026-08-05
+    source_spec: SPEC-015
+
+completion:
+  date: 2026-08-05
+  pull_requests: []
