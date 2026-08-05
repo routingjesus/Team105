@@ -38,10 +38,22 @@ coordination:
 #   pull_requests:
 #     - "https://github.com/..."
 
-# Learnings (add during and after execution)
-# learnings:
-#   - type: pattern_discovered          # See references/spec-format.md for all types
-#     summary: ""
-#     context: ""
-#     tags: []
-#     date: 2026-08-04
+learnings:
+  - type: assumption_invalidated
+    summary: >-
+      No authoritative fixed list of DirectRoute-supported Symbol (shape)
+      or Color values exists in any checked source (repo golden template,
+      public Trimble docs, ledger, prior specs) — the spec's premise that
+      such a vendor-fixed list can be sourced from documentation does not
+      hold, and the spec's own scope boundary forbids inventing one.
+    context: >-
+      fixtures/stop/TEMPLATE_NewConfigStopFile.xls "Header Desc." sheet
+      describes Symbol/Color as "recommended but not required" with no
+      enum; Trimble's public file-import and ImportOrders docs show only
+      3 example values (Circle, Red, green) with inconsistent casing and
+      no published enum. Blocks the research->ready gate until an
+      internal source (Notion field reference or an empirical DirectRoute
+      export) is obtained, or the ACs are revised to not require a
+      vendor-fixed enum.
+    tags: ["directroute-file-formats", "blocker", "research-gate"]
+    date: 2026-08-05
