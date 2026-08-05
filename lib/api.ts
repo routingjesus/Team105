@@ -70,6 +70,8 @@ const TOP_LEVEL_MAP: Record<string, string> = {
   volume_answers: "volumeAnswers",
   frequency_values: "frequencyValues",
   specific_days: "specificDays",
+  generate_shapes: "generateShapes",
+  generate_colors: "generateColors",
 };
 
 // Nested API objects the form flattens into top-level fields.

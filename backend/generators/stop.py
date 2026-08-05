@@ -16,7 +16,14 @@ from typing import Callable
 
 import pandas as pd
 
-from backend.schemas.stop_config import ALIAS_FIELD_MAP, PATTERN_DAY_LETTERS, StopConfig, validate_time_window
+from backend.schemas.stop_config import (
+    ALIAS_FIELD_MAP,
+    COLOR_VALUES,
+    PATTERN_DAY_LETTERS,
+    SHAPE_VALUES,
+    StopConfig,
+    validate_time_window,
+)
 from backend.schemas.truck_config import _validate_ascii
 from backend.services.spatial import (
     filter_by_radius,
@@ -72,7 +79,7 @@ PATTERN_SCOPE_DAYS: dict[str, tuple[str, ...]] = {
 
 
 class FrequencyConsistencyError(ValueError):
-    """Raised when no requested frequency value fits the routing horizon."""
+    """Raised when any requested frequency value doesn't fit the routing horizon."""
 
 
 def _alias(aliases, key: str, default: str) -> str:
@@ -115,7 +122,7 @@ def achievable_frequency_values(frequency_values: list[float], weeks: int) -> li
 
 
 def build_pattern1(scope: str, specific_days: list[str] | None, rng: random.Random) -> str:
-    """Render a 7-char SMTWRFA pattern string; '-' marks an inactive day."""
+    """Render the active day letters only, in SMTWRFA order; no separators for inactive days."""
     if scope == "specific_days":
         active = set(specific_days or [])
     elif scope == "random":
@@ -124,7 +131,16 @@ def build_pattern1(scope: str, specific_days: list[str] | None, rng: random.Rand
         active = set(rng.sample(all_days, k))
     else:
         active = set(PATTERN_SCOPE_DAYS[scope])
-    return "".join(letter if letter in active else "-" for letter in PATTERN_DAY_LETTERS)
+    return "".join(letter for letter in PATTERN_DAY_LETTERS if letter in active)
+
+
+# Realistic business-hours bias for `mode="randomized"` (SPEC-009): real-world
+# stops are rarely open past 1700, so most generated windows should open and
+# close within a 0500-1600 band, with only a small tail extending later.
+_DAY_END_MINUTES = 23 * 60 + 59
+_BUSINESS_OPEN_FLOOR_MINUTES = 5 * 60  # 0500
+_BUSINESS_CLOSE_CEILING_MINUTES = 16 * 60  # 1600
+_EVENING_TAIL_PROBABILITY = 0.12
 
 
 def build_time_window(config: StopConfig, rng: random.Random) -> tuple[int, int, str]:
@@ -136,11 +152,23 @@ def build_time_window(config: StopConfig, rng: random.Random) -> tuple[int, int,
     else:
         # Military-time minutes-of-day, avoiding the 24:00-01:00 gap in the
         # HHMM encoding by working in real minutes then converting back.
-        latest_open_minutes = max(0, (23 * 60 + 59) - fixed_time)
-        open_minutes = rng.randint(0, latest_open_minutes)
-        max_close_minutes = min(23 * 60 + 59, open_minutes + fixed_time + rng.randint(0, 180))
+        latest_open_minutes = max(0, _DAY_END_MINUTES - fixed_time)
+        business_latest_open = max(0, min(_BUSINESS_CLOSE_CEILING_MINUTES - fixed_time, latest_open_minutes))
+
+        if rng.random() < _EVENING_TAIL_PROBABILITY and latest_open_minutes > business_latest_open:
+            # Small tail: a minority of stops open later in the day and may
+            # close past 1700.
+            open_minutes = rng.randint(business_latest_open + 1, latest_open_minutes)
+            jitter_cap = 180
+        else:
+            # Majority: stay within the realistic 0500-1600 business-hours band.
+            business_open_floor = min(_BUSINESS_OPEN_FLOOR_MINUTES, business_latest_open)
+            open_minutes = rng.randint(business_open_floor, business_latest_open)
+            jitter_cap = max(0, min(180, _BUSINESS_CLOSE_CEILING_MINUTES - (open_minutes + fixed_time)))
+
+        max_close_minutes = min(_DAY_END_MINUTES, open_minutes + fixed_time + rng.randint(0, jitter_cap))
         close_minutes = max(open_minutes + fixed_time, max_close_minutes)
-        close_minutes = min(close_minutes, 23 * 60 + 59)
+        close_minutes = min(close_minutes, _DAY_END_MINUTES)
         open1 = (open_minutes // 60) * 100 + (open_minutes % 60)
         close1 = (close_minutes // 60) * 100 + (close_minutes % 60)
     pattern1 = build_pattern1(tw.pattern_scope, tw.specific_days, rng)
@@ -165,6 +193,8 @@ class SelectedStop:
     city: str
     state: str
     zip: str
+    latitude: float
+    longitude: float
 
 
 def _clean(value) -> str:
@@ -190,20 +220,30 @@ def selected_stops_from_candidates(candidates: pd.DataFrame) -> list[SelectedSto
                 city=_clean(row["City"]),
                 state=_clean(row["State"]),
                 zip=_clean(row["Zip"]),
+                latitude=float(row["Latitude"]),
+                longitude=float(row["Longitude"]),
             )
         )
     return stops
+
+
+AVERAGED_VOLUME_JITTER = 0.35  # +/-35% around the target mean; whole units.
 
 
 def _volume_cells(config: StopConfig, rng: random.Random) -> list[str]:
     cells = []
     for answer in config.volume_answers:
         if answer.mode == "fixed":
-            value = answer.value
+            cells.append(f"{answer.value:.2f}")
         else:
-            # Averaged mode: +/-15% jitter around the target mean.
-            value = answer.value * (1 + rng.uniform(-0.15, 0.15))
-        cells.append(f"{value:.2f}")
+            # Averaged mode represents a whole-unit count (e.g. cartons, pieces),
+            # so it must round to an integer -- a fractional jitter around the
+            # mean produces decimal values a real routing system never sees for
+            # a unit count. The jitter width is also widened relative to the
+            # value so a small requested mean still yields a visible spread.
+            jittered = answer.value * (1 + rng.uniform(-AVERAGED_VOLUME_JITTER, AVERAGED_VOLUME_JITTER))
+            value = max(1, round(jittered))
+            cells.append(str(value))
     return cells
 
 
@@ -211,9 +251,14 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
     """Data rows, one (or more, if consolidation is enabled) per selected stop."""
     rng = rng if rng is not None else random.Random(config.seed)
     achievable = achievable_frequency_values(config.frequency_values, config.weeks)
-    if not achievable:
+    unfit = [value for value in config.frequency_values if value not in achievable]
+    if unfit:
+        # Any non-empty `unfit` -- not just a totally empty `achievable` --
+        # must reject: otherwise rng.choice() below silently narrows to a
+        # smaller set than the caller requested.
         raise FrequencyConsistencyError(
-            f"None of {config.frequency_values} fit within a {config.weeks}-week routing horizon"
+            f"Requested frequency value(s) {unfit} do not fit within a {config.weeks}-week "
+            "routing horizon; increase weeks or remove these values from frequency_values."
         )
 
     stops = selected_stops_from_candidates(candidates)
@@ -247,6 +292,8 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
                 "City": stop.city,
                 "State": stop.state,
                 "Zip": stop.zip,
+                "Longitude": f"{stop.longitude:.6f}",
+                "Latitude": f"{stop.latitude:.6f}",
                 "FixedTime": f"{config.fixed_time_minutes:g}",
                 "EqCode": eq_code,
                 "Open1": str(open1).zfill(4),
@@ -254,6 +301,10 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
                 "Pattern1": pattern1,
                 "Frequency": f"{frequency:g}",
             }
+            if config.generate_shapes:
+                row_by_col["Symbol"] = rng.choice(SHAPE_VALUES)
+            if config.generate_colors:
+                row_by_col["Color"] = rng.choice(COLOR_VALUES)
             row = []
             for col in COLUMN_ORDER:
                 if col == VOLUMES_MARKER:

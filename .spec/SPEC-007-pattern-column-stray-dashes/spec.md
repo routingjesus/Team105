@@ -2,7 +2,7 @@
 id: SPEC-007
 title: "Pattern column contains stray dash characters"
 category: bug
-owner: Tye Lofts                         # git config user.name
+owner: Cursor Agent                         # git config user.name
 authored_by: augmented                # augmented | automated
 ---
 

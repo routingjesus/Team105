@@ -307,6 +307,15 @@ export function StopQuestions() {
             </div>
           ) : null}
         </div>
+
+        <div className="advanced-block">
+          <label className="checkbox">
+            <input type="checkbox" {...register("generateShapes")} /> Assign shapes to stops
+          </label>
+          <label className="checkbox">
+            <input type="checkbox" {...register("generateColors")} /> Assign colors to stops
+          </label>
+        </div>
       </details>
     </section>
   );

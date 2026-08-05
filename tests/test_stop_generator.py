@@ -22,6 +22,8 @@ from backend.generators.stop import (
     validate_time_window,
 )
 from backend.schemas.stop_config import (
+    COLOR_VALUES,
+    SHAPE_VALUES,
     AliasConfig,
     ConsolidationConfig,
     EqCodeConfig,
@@ -35,6 +37,7 @@ from backend.services.spatial import load_location_db
 
 SAMPLE_DB_PATH = "fixtures/stop/sample_location_db.xlsx"
 GOLDEN_TEMPLATE_PATH = "fixtures/stop/TEMPLATE_NewConfigStopFile.xls"
+REAL_DB_PATH = "backend/data/location_db.xlsx"
 
 
 @pytest.fixture(scope="module")
@@ -156,6 +159,17 @@ class TestAchievableFrequency:
         with pytest.raises(FrequencyConsistencyError):
             build_rows(base_config, candidates)
 
+    def test_build_rows_raises_when_only_some_values_are_achievable(self, base_config, location_db):
+        # SPEC-006 regression: weeks=1 fits `1` but not `0.5` (needs a
+        # 2-week cycle). Previously this silently proceeded with `achievable
+        # == [1.0]`, so every row got Frequency=1 regardless of the 0.5
+        # request -- AC #2 requires a hard rejection instead.
+        base_config.weeks = 1
+        base_config.frequency_values = [1, 0.5]
+        candidates = select_candidates(base_config, location_db)[0]
+        with pytest.raises(FrequencyConsistencyError):
+            build_rows(base_config, candidates)
+
 
 class TestStopConfigRejectsInvalidFixedWindow:
     """AC6 regression: an invalid caller-supplied fixed window must be
@@ -220,6 +234,33 @@ class TestTimeWindow:
         rows = build_rows(base_config, candidates)
         assert all(row[open1_idx] == "0000" for row in rows)
 
+    def test_generated_pattern1_column_matches_day_letters_only_regex(self, base_config, location_db):
+        # AC3 (SPEC-007): Pattern1 column values across generated output must
+        # match ^[SMTWRFA]*$ -- no dash or other stray character, for every
+        # pattern_scope choice.
+        import re
+
+        pattern1_regex = re.compile(r"^[SMTWRFA]*$")
+        header = build_header(base_config)
+        pattern1_idx = header.index("Pattern1")
+        for scope in ("week", "weekday", "weekend", "random"):
+            base_config.time_window = TimeWindowConfig(mode="randomized", pattern_scope=scope)
+            candidates = select_candidates(base_config, location_db)[0]
+            rows = build_rows(base_config, candidates)
+            assert rows, "expected at least one generated stop row"
+            assert all(pattern1_regex.match(row[pattern1_idx]) for row in rows)
+
+        # The bug report's own reproduction case: specific_days=["M","W","F"]
+        # previously rendered as "-M-W-F-" (interior + edge dashes).
+        base_config.time_window = TimeWindowConfig(
+            mode="randomized", pattern_scope="specific_days", specific_days=["M", "W", "F"]
+        )
+        candidates = select_candidates(base_config, location_db)[0]
+        rows = build_rows(base_config, candidates)
+        assert rows, "expected at least one generated stop row"
+        assert all(pattern1_regex.match(row[pattern1_idx]) for row in rows)
+        assert all(row[pattern1_idx] == "MWF" for row in rows)
+
     def test_randomized_mode_always_satisfies_fixed_time_constraint(self, base_config):
         base_config.time_window = TimeWindowConfig(mode="randomized", pattern_scope="week")
         rng = random.Random(2)
@@ -227,24 +268,73 @@ class TestTimeWindow:
             open1, close1, _ = build_time_window(base_config, rng)
             assert validate_time_window(open1, close1, base_config.fixed_time_minutes)
 
+    def test_randomized_mode_biases_toward_business_hours(self, base_config):
+        # SPEC-009 regression: real-world stops are rarely open past 1700, so
+        # the majority of generated windows should fall within 0500-1600 and
+        # only a small minority should close after 1700.
+        base_config.time_window = TimeWindowConfig(mode="randomized", pattern_scope="week")
+        rng = random.Random(3)
+        sample_size = 3000
+        within_business_hours = 0
+        closes_after_1700 = 0
+        for _ in range(sample_size):
+            open1, close1, _ = build_time_window(base_config, rng)
+            if open1 >= 500 and close1 <= 1600:
+                within_business_hours += 1
+            if close1 > 1700:
+                closes_after_1700 += 1
+
+        assert within_business_hours / sample_size >= 0.75
+        assert closes_after_1700 / sample_size <= 0.20
+
     def test_build_pattern1_week_scope_is_all_active(self):
         pattern = build_pattern1("week", None, random.Random(0))
         assert pattern == "SMTWRFA"
 
     def test_build_pattern1_weekday_scope_excludes_weekend(self):
         pattern = build_pattern1("weekday", None, random.Random(0))
-        assert pattern[0] == "-"  # Sunday
-        assert pattern[-1] == "-"  # Saturday ("A")
-        assert pattern[1:6] == "MTWRF"
+        assert pattern == "MTWRF"
 
     def test_build_pattern1_specific_days(self):
         pattern = build_pattern1("specific_days", ["M", "W", "F"], random.Random(0))
-        assert pattern == "-M-W-F-"
+        assert pattern == "MWF"
+
+    def test_build_pattern1_never_contains_dash(self):
+        # Regression (SPEC-007): Pattern1 must contain only SMTWRFA day
+        # letters, never a leading/trailing/interior separator dash.
+        import re
+
+        for scope, specific_days in [
+            ("week", None),
+            ("weekday", None),
+            ("weekend", None),
+            ("specific_days", ["M", "W", "F"]),
+            ("specific_days", []),
+            ("random", None),
+        ]:
+            rng = random.Random(0)
+            for _ in range(10):
+                pattern = build_pattern1(scope, specific_days, rng)
+                assert re.fullmatch(r"[SMTWRFA]*", pattern), (scope, pattern)
 
 
 class TestSelectedStops:
     def test_id1_falls_back_to_name_when_missing(self):
-        df = pd.DataFrame([{"Name": "Acme Co", "ID1": "", "ID3": "", "Address": "1 St", "City": "X", "State": "OH", "Zip": "1"}])
+        df = pd.DataFrame(
+            [
+                {
+                    "Name": "Acme Co",
+                    "ID1": "",
+                    "ID3": "",
+                    "Address": "1 St",
+                    "City": "X",
+                    "State": "OH",
+                    "Zip": "1",
+                    "Latitude": 39.1,
+                    "Longitude": -82.9,
+                }
+            ]
+        )
         stops = selected_stops_from_candidates(df)
         assert stops[0].id1 == "Acme Co"
 
@@ -271,6 +361,22 @@ class TestBuildRows:
         rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
         seen = {float(row[freq_idx]) for row in rows}
         assert seen <= set(base_config.frequency_values)
+
+    def test_fractional_frequency_actually_populates_output(self, base_config, location_db):
+        # SPEC-006 AC #1 and #3: a requested 0.5 must actually appear in the
+        # rendered output, not just survive a subset-membership check (which
+        # the bug satisfied even when every row was 1). weeks=2 is enough
+        # for a 0.5 (biweekly) cycle to fit.
+        base_config.weeks = 2
+        base_config.stop_count = 20
+        base_config.frequency_values = [1, 0.5]
+        base_config.seed = 5
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        freq_idx = header.index("Frequency")
+        rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
+        seen = {float(row[freq_idx]) for row in rows}
+        assert 0.5 in seen
 
     def test_consolidation_creates_n_rows_per_customer_with_unique_id2(self, base_config, location_db):
         base_config.consolidation = ConsolidationConfig(enabled=True, lines_per_customer=3)
@@ -309,6 +415,141 @@ class TestBuildRows:
         first = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
         second = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
         assert first == second
+
+    def test_shapes_and_colors_blank_by_default(self, base_config, location_db):
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        symbol_idx = header.index("Symbol")
+        color_idx = header.index("Color")
+        rows = build_rows(base_config, candidates)
+        for row in rows:
+            assert row[symbol_idx] == ""
+            assert row[color_idx] == ""
+
+    def test_shapes_generated_from_allowlist_when_enabled(self, base_config, location_db):
+        base_config.generate_shapes = True
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        symbol_idx = header.index("Symbol")
+        color_idx = header.index("Color")
+        rows = build_rows(base_config, candidates)
+        for row in rows:
+            assert row[symbol_idx] in SHAPE_VALUES
+            assert row[color_idx] == ""
+
+    def test_colors_generated_from_allowlist_when_enabled(self, base_config, location_db):
+        base_config.generate_colors = True
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        symbol_idx = header.index("Symbol")
+        color_idx = header.index("Color")
+        rows = build_rows(base_config, candidates)
+        for row in rows:
+            assert row[symbol_idx] == ""
+            assert row[color_idx] in COLOR_VALUES
+
+    def test_shapes_and_colors_both_generated_when_both_enabled(self, base_config, location_db):
+        base_config.generate_shapes = True
+        base_config.generate_colors = True
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        symbol_idx = header.index("Symbol")
+        color_idx = header.index("Color")
+        rows = build_rows(base_config, candidates)
+        for row in rows:
+            assert row[symbol_idx] in SHAPE_VALUES
+            assert row[color_idx] in COLOR_VALUES
+
+
+class TestCoordinateCarryThrough:
+    """SPEC-005 regression: Latitude/Longitude must survive from location_db
+    into the generated output rows, matching the source values exactly."""
+
+    def test_coordinates_match_source_location_db(self, base_config, location_db):
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        rows = build_rows(base_config, candidates)
+        lon_idx = header.index("Longitude")
+        lat_idx = header.index("Latitude")
+        address_idx = header.index("Address")
+
+        by_address = location_db.set_index("Address")
+        for row in rows:
+            assert row[lon_idx] != ""
+            assert row[lat_idx] != ""
+            source = by_address.loc[row[address_idx]]
+            assert float(row[lon_idx]) == pytest.approx(float(source["Longitude"]), abs=1e-6)
+            assert float(row[lat_idx]) == pytest.approx(float(source["Latitude"]), abs=1e-6)
+
+    def test_coordinates_match_source_against_real_location_db(self, base_config):
+        real_db = load_location_db(REAL_DB_PATH)
+        candidates = select_candidates(base_config, real_db)[0]
+        header = build_header(base_config)
+        rows = build_rows(base_config, candidates)
+        lon_idx = header.index("Longitude")
+        lat_idx = header.index("Latitude")
+        address_idx = header.index("Address")
+
+        by_address = real_db.set_index("Address")
+        for row in rows:
+            assert row[lon_idx] != ""
+            assert row[lat_idx] != ""
+            source = by_address.loc[row[address_idx]]
+            assert float(row[lon_idx]) == pytest.approx(float(source["Longitude"]), abs=1e-6)
+            assert float(row[lat_idx]) == pytest.approx(float(source["Latitude"]), abs=1e-6)
+
+    def test_consolidation_shares_coordinates_across_line_items(self, base_config, location_db):
+        base_config.consolidation = ConsolidationConfig(enabled=True, lines_per_customer=3)
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        rows = build_rows(base_config, candidates)
+        lon_idx = header.index("Longitude")
+        lat_idx = header.index("Latitude")
+
+        for i in range(0, len(rows), 3):
+            group = rows[i : i + 3]
+            longitudes = {row[lon_idx] for row in group}
+            latitudes = {row[lat_idx] for row in group}
+            assert len(longitudes) == 1
+            assert len(latitudes) == 1
+
+
+class TestVolumeCells:
+    def test_fixed_mode_values_are_unchanged(self, base_config, location_db):
+        # Regression guard: SPEC-008 only touches "averaged" mode.
+        base_config.volume_answers = [VolumeAnswer(name="Cube", mode="fixed", value=25)]
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        cube_idx = header.index("Cube")
+        rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
+        assert all(row[cube_idx] == "25.00" for row in rows)
+
+    def test_averaged_mode_produces_whole_numbers_with_meaningful_spread(self, base_config, location_db):
+        # AC1 + AC2: averaged-mode volumes must render as whole numbers, and
+        # the spread across many stops must be wide enough to look like real
+        # variance rather than clustering within ~1 unit of the target mean.
+        base_config.stop_count = 40
+        base_config.volume_answers = [VolumeAnswer(name="Cube", mode="averaged", value=12)]
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        cube_idx = header.index("Cube")
+        rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
+        cells = [row[cube_idx] for row in rows]
+
+        assert all("." not in cell for cell in cells), "averaged volumes must render without a decimal component"
+        values = [int(cell) for cell in cells]
+        assert max(values) - min(values) >= 4, "spread around the requested mean is too narrow"
+
+    def test_averaged_mode_never_produces_non_positive_volumes(self, base_config, location_db):
+        # A small requested mean with wide jitter must still floor at 1, not
+        # a zero/negative unit count.
+        base_config.stop_count = 40
+        base_config.volume_answers = [VolumeAnswer(name="Cube", mode="averaged", value=2)]
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        cube_idx = header.index("Cube")
+        rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
+        assert all(int(row[cube_idx]) >= 1 for row in rows)
 
 
 class TestZeroCandidates:

@@ -76,6 +76,8 @@ describe("buildStopConfig", () => {
     expect(config.eq_code).toBeNull();
     expect(config.consolidation).toBeNull();
     expect(config.aliases).toBeNull();
+    expect(config.generate_shapes).toBe(false);
+    expect(config.generate_colors).toBe(false);
   });
 
   it("includes optional blocks when enabled", () => {
@@ -138,5 +140,14 @@ describe("buildStopConfig", () => {
       id3: "Route Zone",
       address_2: null,
     });
+  });
+
+  it("maps shape/color generation toggles", () => {
+    const config = buildStopConfig(
+      { ...values, generateShapes: true, generateColors: true },
+      truckResponse,
+    );
+    expect(config.generate_shapes).toBe(true);
+    expect(config.generate_colors).toBe(true);
   });
 });
