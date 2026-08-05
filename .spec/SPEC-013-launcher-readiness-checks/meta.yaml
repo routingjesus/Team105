@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: in_progress
+status: done
 created: 2026-08-05
 updated: 2026-08-05
 
@@ -40,10 +40,18 @@ coordination:
 #     - "https://github.com/..."
 
 # Learnings (add during and after execution)
-# learnings:
-#   - type: pattern_discovered          # See references/spec-format.md for all types
-#     summary: ""
-#     context: ""
-#     tags: []
-#     date: 2026-08-05
-ready_sha: "fb6e1b800621f281831bbfc1bfbc4e1d3125740b"
+learnings:
+  - type: constraint_found
+    summary: "Under $ErrorActionPreference='Stop', a failing `python -c import` probe whose stderr is redirected still raises a terminating NativeCommandError in PS 5.1 — relax to Continue inside the probe"
+    context: "Test-BackendReady crashed -CheckOnly when pandas was missing instead of returning $false"
+    tags: [powershell, python, launcher, windows]
+    date: 2026-08-05
+  - type: constraint_found
+    summary: "Install-Uv must pipe the installer child process to Out-Host; otherwise its stdout becomes the function return value and Split-Path -Parent $uv receives an empty string"
+    context: "Ensure-Backend repair path failed after fresh uv install during half-venv simulation"
+    tags: [powershell, uv, launcher, windows]
+    date: 2026-08-05
+
+completion:
+  date: 2026-08-05
+  pull_requests: []
