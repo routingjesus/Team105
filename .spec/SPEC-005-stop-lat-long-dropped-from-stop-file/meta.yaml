@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: draft                           # draft | research | ready | in_progress | blocked | done | cancelled | superseded
+status: ready
 created: 2026-08-04
 updated: 2026-08-04
 
@@ -46,3 +46,4 @@ updated: 2026-08-04
 #     context: ""
 #     tags: []
 #     date: 2026-08-04
+ready_sha: "6600a26b39b38dc8ac180d038eace49e884c4817"
