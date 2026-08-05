@@ -460,6 +460,42 @@ class TestBuildRows:
             assert row[symbol_idx] in SHAPE_VALUES
             assert row[color_idx] in COLOR_VALUES
 
+    def test_consolidation_shares_symbol_and_color_across_line_items(
+        self, base_config, location_db
+    ):
+        # SPEC-015 AC1: same customer (stride group) shares Symbol/Color.
+        n = 3
+        base_config.consolidation = ConsolidationConfig(enabled=True, lines_per_customer=n)
+        base_config.generate_shapes = True
+        base_config.generate_colors = True
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        symbol_idx = header.index("Symbol")
+        color_idx = header.index("Color")
+        rows = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
+        assert len(rows) == len(candidates) * n
+
+        for i in range(0, len(rows), n):
+            group = rows[i : i + n]
+            symbols = {row[symbol_idx] for row in group}
+            colors = {row[color_idx] for row in group}
+            assert len(symbols) == 1
+            assert len(colors) == 1
+            assert next(iter(symbols)) in SHAPE_VALUES
+            assert next(iter(colors)) in COLOR_VALUES
+
+    def test_consolidation_shapes_colors_blank_when_disabled(self, base_config, location_db):
+        # SPEC-015 AC4: consolidation on, shapes/colors off → blank Symbol/Color.
+        base_config.consolidation = ConsolidationConfig(enabled=True, lines_per_customer=3)
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        symbol_idx = header.index("Symbol")
+        color_idx = header.index("Color")
+        rows = build_rows(base_config, candidates)
+        for row in rows:
+            assert row[symbol_idx] == ""
+            assert row[color_idx] == ""
+
 
 class TestCoordinateCarryThrough:
     """SPEC-005 regression: Latitude/Longitude must survive from location_db
