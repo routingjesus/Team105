@@ -105,14 +105,14 @@ raw technical name.
   validation and backend `_validate_ascii` already reject non-ASCII,
   tabs, and line breaks for alias text, covering the sharpest edges of
   these external pitfalls.
-- **Open product decision surfaced by research, not yet resolved by the
-  spec's acceptance criteria**: whether decoupling `ID2`/`ID3` from
-  `aliasesEnabled` should also remove/hide the other five alias fields
-  (`aliasName`, `aliasContact`, `aliasPhone`, `aliasId1`, `aliasAddress2`)
-  from the wizard, per the scope boundary "does not add aliasing for any
-  column other than `ID2`/`ID3`." The backend `AliasConfig` model must keep
-  all seven fields for backward compatibility regardless (no API contract
-  change either way).
+- **Resolved product decision**: decoupling `ID2`/`ID3` from
+  `aliasesEnabled` also removes the `aliasId2`/`aliasId3` fields from the
+  "Rename output columns" advanced block — `ID2`/`ID3` aliasing moves
+  entirely to the new always-visible prompt, with no duplicate entry point.
+  The other five alias fields (`aliasName`, `aliasContact`, `aliasPhone`,
+  `aliasId1`, `aliasAddress2`) keep their current advanced-toggle behavior
+  unchanged, per the scope boundary. The backend `AliasConfig` model keeps
+  all seven fields regardless — no API contract change.
 
 ## Scope boundaries
 
@@ -121,11 +121,12 @@ raw technical name.
 - Does not add aliasing for any column other than `ID2`/`ID3` — the
   backend `AliasConfig` model and its other five alias fields (name,
   contact, phone, id1, address_2) are unaffected and keep their current
-  behavior/API shape; this spec only changes how `ID2`/`ID3` are exposed
-  in the wizard UI and whether they require the `aliasesEnabled` toggle.
+  advanced-toggle behavior/API shape; this spec only relocates `ID2`/`ID3`
+  out of that advanced block into their own always-visible prompt.
 - Does not change the API contract's field names or shape — `StopConfig.
   aliases.id2`/`id3` already exist and are reused as-is; only the wizard's
-  UI placement and the `aliasesEnabled` gating around `id2`/`id3` change.
+  UI placement of `aliasId2`/`aliasId3` changes (moved out of the
+  `aliasesEnabled`-gated block, no longer requiring that toggle).
 - Does not attempt to validate against a specific customer's DirectRoute
   Preferences label configuration; a manual DirectRoute import smoke test
   (existing informal practice) is the acceptance mechanism for import
@@ -146,15 +147,18 @@ raw technical name.
      generically instead of pasting machine-specific paths like `/home/...` or `/Users/...`. -->
 
 - **Files likely affected:**
-  - `components/wizard/stop-questions.tsx` (lines 284–299) — move the
-    `aliasId2`/`aliasId3` `TextField`s out of the `aliasesEnabled`-gated
-    block into an always-visible optional prompt (e.g. its own labeled
-    block near the stop-identity fields), with helper text such as
-    "Leave blank to use ID2"/"Leave blank to use ID3".
+  - `components/wizard/stop-questions.tsx` (lines 284–299) — remove the
+    `aliasId2`/`aliasId3` `TextField`s from the `aliasesEnabled`-gated
+    "Rename output columns" block entirely (the other five fields —
+    `aliasName`, `aliasContact`, `aliasPhone`, `aliasId1`,
+    `aliasAddress2` — stay there unchanged), and add a new always-visible
+    optional block (e.g. near the stop-identity fields) with its own
+    `aliasId2`/`aliasId3` `TextField`s and helper text such as "Leave
+    blank to use ID2"/"Leave blank to use ID3".
   - `lib/build-config.ts`'s `buildAliases()` (lines 33–47) — send
-    `id2`/`id3` when non-blank regardless of `aliasesEnabled`, while the
-    other five fields keep their existing `aliasesEnabled`-gated behavior
-    (per the resolved scope decision below).
+    `id2`/`id3` when non-blank regardless of `aliasesEnabled`; the other
+    five fields keep their existing `aliasesEnabled`-gated behavior
+    unchanged.
   - `components/wizard/review.tsx` — optionally surface the chosen ID2/ID3
     aliases (or "using default ID2/ID3") in the review summary; currently
     no alias fields are shown there at all.
@@ -190,3 +194,7 @@ raw technical name.
   - `lib/wizard-schema.test.ts` — add cases confirming blank
     `aliasId2`/`aliasId3` pass validation and non-ASCII values are
     rejected, consistent with other `optionalAscii` field tests.
+  - Manual/visual check (no automated test needed): the "Rename output
+    columns" advanced block no longer shows `ID2 column alias`/`ID3
+    column alias` fields, and the new always-visible prompt shows them
+    exactly once with no duplicate entry point.
