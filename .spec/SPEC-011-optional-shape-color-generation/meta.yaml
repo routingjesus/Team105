@@ -38,11 +38,38 @@ coordination:
 #   pull_requests:
 #     - "https://github.com/..."
 
-# Learnings (add during and after execution)
-# learnings:
-#   - type: pattern_discovered          # See references/spec-format.md for all types
-#     summary: ""
-#     context: ""
-#     tags: []
-#     date: 2026-08-04
+learnings:
+  - type: constraint_found
+    summary: "No authoritative DirectRoute Symbol/Color enum exists anywhere in this repo"
+    context: >
+      Searched the golden templates' Header Desc. sheets (xlrd), scanned the
+      raw .xls binaries for embedded dropdown/validation strings, and
+      checked every prior spec's meta.yaml source field and the format
+      ledger. Only anecdotal sample values surfaced (Tower/Cyan from the
+      templates, Circle/Square/Red/green from Trimble ImportOrders
+      samples) -- no complete list. The one Notion doc cited in-repo
+      (shared PRD source used by SPEC-001/002/003) is private and
+      unreachable from this environment (fetch times out). Per explicit
+      user direction, proceeded with the anecdotal samples as a
+      placeholder allowlist (backend/schemas/stop_config.py::SHAPE_VALUES
+      / COLOR_VALUES) rather than blocking -- tracked as a waived
+      acceptance criterion below. Future work: swap in the real
+      DirectRoute enum once available; no other code should need to
+      change.
+    tags: [directroute, stop-file, shape, color, research-gap]
+    date: 2026-08-05
+    source_spec: SPEC-011
+  - type: pattern_discovered
+    summary: "Simple enable-flag toggles (no user-supplied value list) fit better as plain booleans than nested Config objects"
+    context: >
+      EqCodeConfig/ConsolidationConfig exist because those features need
+      user-supplied parameters (codes, fraction, lines_per_customer).
+      Shape/color generation only needs an on/off switch since the value
+      pool is a fixed, backend-owned allowlist -- generate_shapes: bool
+      and generate_colors: bool on StopConfig avoided an unnecessary
+      wrapper object, keeping backend/generators/stop.py's build_rows
+      change to two `if` blocks.
+    tags: [directroute, stop-file, api-design]
+    date: 2026-08-05
+    source_spec: SPEC-011
 ready_sha: "6e37cb123370a636cb1281b23fee4b3e38252927"

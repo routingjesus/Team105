@@ -95,6 +95,8 @@ const stopStep = z.object({
   aliasId2: optionalAscii,
   aliasId3: optionalAscii,
   aliasAddress2: optionalAscii,
+  generateShapes: z.boolean().default(false),
+  generateColors: z.boolean().default(false),
 });
 
 const minutesOf = (military: number): number =>
@@ -258,6 +260,8 @@ export interface WizardFormValues {
   aliasId2: string;
   aliasId3: string;
   aliasAddress2: string;
+  generateShapes: boolean;
+  generateColors: boolean;
 }
 
 export const defaultWizardValues: WizardFormValues = {
@@ -298,6 +302,8 @@ export const defaultWizardValues: WizardFormValues = {
   aliasId2: "",
   aliasId3: "",
   aliasAddress2: "",
+  generateShapes: false,
+  generateColors: false,
 };
 
 export const truckStepFields = [
@@ -341,6 +347,8 @@ export const stopStepFields = [
   "aliasId2",
   "aliasId3",
   "aliasAddress2",
+  "generateShapes",
+  "generateColors",
 ] as const;
 
 // Compile-time drift guard: the two step arrays must together name every key of

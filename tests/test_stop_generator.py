@@ -22,6 +22,8 @@ from backend.generators.stop import (
     validate_time_window,
 )
 from backend.schemas.stop_config import (
+    COLOR_VALUES,
+    SHAPE_VALUES,
     AliasConfig,
     ConsolidationConfig,
     EqCodeConfig,
@@ -292,6 +294,50 @@ class TestBuildRows:
         first = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
         second = build_rows(base_config, candidates, rng=random.Random(base_config.seed))
         assert first == second
+
+    def test_shapes_and_colors_blank_by_default(self, base_config, location_db):
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        symbol_idx = header.index("Symbol")
+        color_idx = header.index("Color")
+        rows = build_rows(base_config, candidates)
+        for row in rows:
+            assert row[symbol_idx] == ""
+            assert row[color_idx] == ""
+
+    def test_shapes_generated_from_allowlist_when_enabled(self, base_config, location_db):
+        base_config.generate_shapes = True
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        symbol_idx = header.index("Symbol")
+        color_idx = header.index("Color")
+        rows = build_rows(base_config, candidates)
+        for row in rows:
+            assert row[symbol_idx] in SHAPE_VALUES
+            assert row[color_idx] == ""
+
+    def test_colors_generated_from_allowlist_when_enabled(self, base_config, location_db):
+        base_config.generate_colors = True
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        symbol_idx = header.index("Symbol")
+        color_idx = header.index("Color")
+        rows = build_rows(base_config, candidates)
+        for row in rows:
+            assert row[symbol_idx] == ""
+            assert row[color_idx] in COLOR_VALUES
+
+    def test_shapes_and_colors_both_generated_when_both_enabled(self, base_config, location_db):
+        base_config.generate_shapes = True
+        base_config.generate_colors = True
+        candidates = select_candidates(base_config, location_db)[0]
+        header = build_header(base_config)
+        symbol_idx = header.index("Symbol")
+        color_idx = header.index("Color")
+        rows = build_rows(base_config, candidates)
+        for row in rows:
+            assert row[symbol_idx] in SHAPE_VALUES
+            assert row[color_idx] in COLOR_VALUES
 
 
 class TestCoordinateCarryThrough:

@@ -20,6 +20,21 @@ FREQUENCY_VALUES: tuple[float, ...] = (7, 6, 5, 4, 3, 2, 1, 0.5, 0.25, 0.125, 0.
 # DirectRoute SMTWRFA convention. "A" stands in for Saturday.
 PATTERN_DAY_LETTERS = "SMTWRFA"
 
+# SPEC-011: DirectRoute draws Symbol ("shape") and Color from a fixed,
+# product-defined list, but no authoritative enum exists in this repo (the
+# golden templates' "Header Desc." sheet only describes the columns as
+# "recommended but not required" with no value list, and the only
+# DirectRoute field-reference doc cited anywhere in the repo is a private
+# Notion page unreachable from this environment). These constants are the
+# anecdotal sample values already visible in the owner-supplied golden
+# templates and Trimble ImportOrders samples, used here as a placeholder
+# allowlist per an explicit user-approved waiver (see SPEC-011's meta.yaml
+# completion.acceptance_criteria_waived and spec.md Research section).
+# Replace with the real DirectRoute enum once available -- no other code
+# should need to change.
+SHAPE_VALUES: tuple[str, ...] = ("Tower", "Square", "Circle")
+COLOR_VALUES: tuple[str, ...] = ("Cyan", "Red", "Green")
+
 # Single source of truth for aliasable output columns -> AliasConfig
 # attribute names, reused by both AliasConfig's own validation and
 # backend.generators.stop.build_header's header substitution.
@@ -158,6 +173,8 @@ class StopConfig(BaseModel):
     eq_code: EqCodeConfig | None = None
     consolidation: ConsolidationConfig | None = None
     aliases: AliasConfig | None = None
+    generate_shapes: bool = False
+    generate_colors: bool = False
     seed: int = Field(default=0)
 
     @field_validator("frequency_values")

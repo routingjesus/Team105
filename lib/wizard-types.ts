@@ -123,6 +123,8 @@ export interface StopConfig {
   eq_code?: EqCodeConfig | null;
   consolidation?: ConsolidationConfig | null;
   aliases?: AliasConfig | null;
+  generate_shapes: boolean;
+  generate_colors: boolean;
   seed: number;
 }
 
