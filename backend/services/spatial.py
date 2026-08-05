@@ -70,9 +70,17 @@ def resolve_depot_coordinates(
 ) -> tuple[float, float]:
     """Match a depot's address against location_db; fall back to City/State/Zip.
 
+    When the depot carries inline latitude/longitude (SPEC-017 manual or
+    geocoded entry before persist), those values are used directly.
+
     Returns (latitude, longitude). Raises DepotCoordinateError if neither an
     exact address match nor a City/State/Zip match exists.
     """
+    inline_lat = getattr(depot, "latitude", None)
+    inline_lon = getattr(depot, "longitude", None)
+    if inline_lat is not None and inline_lon is not None:
+        return float(inline_lat), float(inline_lon)
+
     exact = location_db[
         location_db["Address"].str.casefold() == depot.address.casefold()
     ]

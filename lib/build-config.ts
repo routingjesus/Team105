@@ -60,7 +60,16 @@ export function buildStopConfig(
   truck: TruckGenerationResponse,
 ): StopConfig {
   const config: StopConfig = {
-    depots: truck.depots,
+    depots: truck.depots.map((depot, index) => {
+      const formDepot = values.depots[index];
+      const latitude = formDepot?.latitude;
+      const longitude = formDepot?.longitude;
+      return {
+        ...depot,
+        latitude: latitude ?? null,
+        longitude: longitude ?? null,
+      };
+    }),
     weeks: truck.weeks,
     volumes: truck.volume_names,
     selection: {

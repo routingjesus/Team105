@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { DayLetter, PatternScope } from "./wizard-types";
+import type { GeoSource } from "./location-utils";
 
 /**
  * Zod is the single source of truth for wizard validation. Schemas mirror the
@@ -33,13 +34,48 @@ const optionalNum = <T extends z.ZodTypeAny>(inner: T) =>
     inner.optional(),
   );
 
-const depotSchema = z.object({
+const coordSchema = z.preprocess(
+  (v) =>
+    v === "" || v === null || v === undefined || (typeof v === "number" && Number.isNaN(v))
+      ? undefined
+      : v,
+  z.coerce
+    .number()
+    .min(-90, "Latitude must be between -90 and 90")
+    .max(90, "Latitude must be between -90 and 90")
+    .optional(),
+);
+
+const lonSchema = z.preprocess(
+  (v) =>
+    v === "" || v === null || v === undefined || (typeof v === "number" && Number.isNaN(v))
+      ? undefined
+      : v,
+  z.coerce
+    .number()
+    .min(-180, "Longitude must be between -180 and 180")
+    .max(180, "Longitude must be between -180 and 180")
+    .optional(),
+);
+
+const locationFieldsSchema = z.object({
   address: requiredAscii,
+  address2: optionalAscii,
   city: requiredAscii,
   state: requiredAscii,
   zip: requiredAscii,
+  latitude: coordSchema,
+  longitude: lonSchema,
+  geoSource: z.enum(["api", "manual"]).nullable().optional(),
+  inLocationDb: z.boolean().default(false),
+  showManualCoords: z.boolean().default(false),
+});
+
+const depotSchema = locationFieldsSchema.extend({
   trucks: z.coerce.number().int("Whole number of trucks").gt(0, "Need at least 1 truck"),
 });
+
+const manualStopSchema = locationFieldsSchema;
 
 const volumeSchema = z.object({
   name: requiredAscii,
@@ -97,6 +133,7 @@ const stopStep = z.object({
   aliasAddress2: optionalAscii,
   generateShapes: z.boolean().default(false),
   generateColors: z.boolean().default(false),
+  manualStops: z.array(manualStopSchema).default([]),
 });
 
 const minutesOf = (military: number): number =>
@@ -192,11 +229,20 @@ export const wizardSchema = truckStep.merge(stopStep).superRefine((data, ctx) =>
   }
 });
 
-export interface DepotFormValue {
+export interface LocationFormValue {
   address: string;
+  address2: string;
   city: string;
   state: string;
   zip: string;
+  latitude?: number;
+  longitude?: number;
+  geoSource?: GeoSource;
+  inLocationDb: boolean;
+  showManualCoords: boolean;
+}
+
+export interface DepotFormValue extends LocationFormValue {
   trucks: number;
 }
 
@@ -262,11 +308,26 @@ export interface WizardFormValues {
   aliasAddress2: string;
   generateShapes: boolean;
   generateColors: boolean;
+  manualStops: LocationFormValue[];
 }
 
 export const defaultWizardValues: WizardFormValues = {
   weeks: 2,
-  depots: [{ address: "", city: "", state: "", zip: "", trucks: 5 }],
+  depots: [
+    {
+      address: "",
+      address2: "",
+      city: "",
+      state: "",
+      zip: "",
+      trucks: 5,
+      latitude: undefined,
+      longitude: undefined,
+      geoSource: null,
+      inLocationDb: false,
+      showManualCoords: false,
+    },
+  ],
   volumes: [{ name: "Cases", capacity: 2000 }],
   miCost: 1.39,
   hrCost: 30.0,
@@ -304,6 +365,7 @@ export const defaultWizardValues: WizardFormValues = {
   aliasAddress2: "",
   generateShapes: false,
   generateColors: false,
+  manualStops: [],
 };
 
 export const truckStepFields = [
@@ -349,6 +411,7 @@ export const stopStepFields = [
   "aliasAddress2",
   "generateShapes",
   "generateColors",
+  "manualStops",
 ] as const;
 
 // Compile-time drift guard: the two step arrays must together name every key of

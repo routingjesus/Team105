@@ -155,3 +155,20 @@ def test_load_location_db_strips_whitespace_padding(tmp_path):
 
     # State filtering also works against the normalized value.
     assert len(filter_by_state(loaded, ["va"])) == 1
+
+
+def test_resolve_depot_coordinates_uses_inline_coords(location_db):
+    from backend.schemas.truck_config import DepotSummary
+
+    depot = DepotSummary(
+        address="Unknown",
+        city="Denver",
+        state="CO",
+        zip="80202",
+        truck_count=1,
+        latitude=39.7392,
+        longitude=-104.9903,
+    )
+    lat, lon = resolve_depot_coordinates(depot, location_db)
+    assert lat == pytest.approx(39.7392)
+    assert lon == pytest.approx(-104.9903)
