@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: research                        # draft | research | ready | in_progress | blocked | done | cancelled | superseded
+status: ready
 created: 2026-08-05
 updated: 2026-08-05
 
@@ -41,20 +41,26 @@ coordination:
 
 # Learnings (add during and after execution)
 learnings:
-  - type: constraint_found
-    summary: "DRProject.config has no public schema — need an owner-supplied sample before this spec can leave research"
+  - type: assumption_confirmed
+    summary: "DRProject.config is UTF-8 XML with root AppSettings; wizard-driven content lives under Configuration/Stop"
     context: >
-      DRProject.config is proprietary/undocumented outside DirectRoute itself
-      (no public Trimble/Appian reference found), structurally the same gap
-      SPEC-001 hit for the .TRUCK macro schema and SPEC-002 hit for the stop
-      column catalog — both were resolved by the owner supplying a real
-      sample file bundled as a golden fixture (fixtures/truck/,
-      fixtures/stop/). The user's own message referenced a real local
-      DRProject.config from an existing project as the intended template
-      source. Once supplied (sanitized of proprietary customer data),
-      bundle it under fixtures/drproject-config/ and finalize spec.md's
-      AC 2/AC 3 field list and the structural-parity test expectations
-      against it before transitioning this spec to ready.
-    tags: [directroute, drproject-config, file-format, open-question]
+      Owner-supplied golden template (bundled at fixtures/drproject-config/)
+      confirms the file structure: AppSettings > Configuration (Stop field
+      aliases + Quantities) + Preferences (passthrough with sanitized paths).
+      Depot addresses are NOT in this file — it maps stop-file column display
+      names, not routing geography. Substitution targets align with
+      AliasConfig and VolumeSpec from the existing stop/truck schemas.
+    tags: [directroute, drproject-config, file-format]
     date: 2026-08-05
     source_spec: SPEC-012
+  - type: constraint_found
+    summary: "Machine-specific paths and DRTrack credentials must be cleared in generated DRProject.config output"
+    context: >
+      The owner template contained local filesystem paths (RecentFilesList,
+      DistanceFile, etc.) and encrypted DRTrack credentials. These are
+      environment-specific and must always be emitted empty in generated
+      output, regardless of wizard input.
+    tags: [directroute, drproject-config, data-hygiene]
+    date: 2026-08-05
+    source_spec: SPEC-012
+ready_sha: "e4cb7fb7b1dc0a8a5a69f40bbadea187d7feec97"
