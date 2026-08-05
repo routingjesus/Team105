@@ -1,7 +1,7 @@
 schema_version: "2026.04"
-status: research                           # draft | research | ready | in_progress | blocked | done | cancelled | superseded
+status: done
 created: 2026-08-04
-updated: 2026-08-04
+updated: 2026-08-05
 
 # Origin (optional — informational, not a dependency)
 # source: "https://..."                 # Shareable origin breadcrumb, never a local filesystem path like /home/... or /Users/...
@@ -45,3 +45,25 @@ coordination:
 #     context: ""
 #     tags: []
 #     date: 2026-08-04
+ready_sha: "878eb75e8bb5101f883473d14530c860100d62f3"
+
+learnings:
+  - type: constraint_found
+    summary: "Averaged-mode volume jitter and formatting lived in one shared code path for both `fixed` and `averaged` VolumeAnswer modes, so a fix targeting only `averaged` had to split the format branch rather than adjust a shared constant."
+    context: >
+      `backend/generators/stop.py::_volume_cells` formatted every volume
+      cell with `f"{value:.2f}"` regardless of mode, and jittered
+      `averaged` mode by a flat +/-15%. Fixing AC1 (whole numbers) required
+      moving `fixed` mode to its own branch so its existing `"25.00"`
+      output stayed byte-identical, while `averaged` mode rounds via
+      `max(1, round(...))` and widens the jitter to +/-35% so the spread
+      is visibly wider on typical demo-sized stop counts (~10-50 stops)
+      without the schema's `VolumeAnswer.value` (still `float`) needing to
+      change.
+    tags: [stop-generator, volume, formatting, rounding]
+    date: 2026-08-05
+
+completion:
+  date: 2026-08-05
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/10"

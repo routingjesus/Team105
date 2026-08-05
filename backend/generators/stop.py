@@ -165,6 +165,8 @@ class SelectedStop:
     city: str
     state: str
     zip: str
+    latitude: float
+    longitude: float
 
 
 def _clean(value) -> str:
@@ -190,20 +192,30 @@ def selected_stops_from_candidates(candidates: pd.DataFrame) -> list[SelectedSto
                 city=_clean(row["City"]),
                 state=_clean(row["State"]),
                 zip=_clean(row["Zip"]),
+                latitude=float(row["Latitude"]),
+                longitude=float(row["Longitude"]),
             )
         )
     return stops
+
+
+AVERAGED_VOLUME_JITTER = 0.35  # +/-35% around the target mean; whole units.
 
 
 def _volume_cells(config: StopConfig, rng: random.Random) -> list[str]:
     cells = []
     for answer in config.volume_answers:
         if answer.mode == "fixed":
-            value = answer.value
+            cells.append(f"{answer.value:.2f}")
         else:
-            # Averaged mode: +/-15% jitter around the target mean.
-            value = answer.value * (1 + rng.uniform(-0.15, 0.15))
-        cells.append(f"{value:.2f}")
+            # Averaged mode represents a whole-unit count (e.g. cartons, pieces),
+            # so it must round to an integer -- a fractional jitter around the
+            # mean produces decimal values a real routing system never sees for
+            # a unit count. The jitter width is also widened relative to the
+            # value so a small requested mean still yields a visible spread.
+            jittered = answer.value * (1 + rng.uniform(-AVERAGED_VOLUME_JITTER, AVERAGED_VOLUME_JITTER))
+            value = max(1, round(jittered))
+            cells.append(str(value))
     return cells
 
 
@@ -252,6 +264,8 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
                 "City": stop.city,
                 "State": stop.state,
                 "Zip": stop.zip,
+                "Longitude": f"{stop.longitude:.6f}",
+                "Latitude": f"{stop.latitude:.6f}",
                 "FixedTime": f"{config.fixed_time_minutes:g}",
                 "EqCode": eq_code,
                 "Open1": str(open1).zfill(4),
