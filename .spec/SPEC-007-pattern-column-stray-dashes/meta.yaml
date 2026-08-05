@@ -1,0 +1,79 @@
+schema_version: "2026.04"
+status: done
+created: 2026-08-04
+updated: 2026-08-05
+
+# Origin (optional — informational, not a dependency)
+# source: "https://..."                 # Shareable origin breadcrumb, never a local filesystem path like /home/... or /Users/...
+# tracking_id: ""                       # External reference (Notion task, Jira ticket, etc.)
+
+# Dependencies (optional — advisory ordering, not execution blockers)
+# depends_on:
+#   - "SPEC-030"                        # Lightweight sequencing; upstream should usually be done first
+# blocked_by:
+#   - spec: "SPEC-030"
+#     until_status: "ready"            # required; ready | done
+
+coordination:
+  blast_radius: isolated
+  parallel_safe: true
+
+# Branching (optional — non-default branch topology for stacked or integration workflows)
+# branching:
+#   base_branch: ""                    # Branch to fork from; defaults to repo default branch when absent
+#   target_branch: ""                  # PR base branch; defaults to repo default branch when absent
+
+# Freshness snapshot (populate when status reaches ready)
+# ready_sha: ""                         # Full git HEAD commit recorded at the ready transition; used for advisory staleness checks
+
+# Completion (populate when status reaches done)
+# completion:
+#   date: 2026-08-04
+#   acceptance_criteria_waived:         # Omit if none waived
+#     - acceptance_criteria: ""
+#       rationale: ""
+#   self_review_waived:                 # Omit if none waived; pr-review blocking findings the user accepted to proceed
+#     - finding: ""
+#       rationale: ""
+#   pull_requests:
+#     - "https://github.com/..."
+
+learnings:
+  - type: gap_found
+    summary: "build_pattern1's existing unit tests encoded the bug's dash-padded shape as expected output"
+    context: >
+      Two of the three pre-existing `build_pattern1` tests in
+      tests/test_stop_generator.py asserted the old fixed-width,
+      dash-padded shape (`pattern[0] == "-"`, `pattern == "-M-W-F-"`) as
+      correct behavior, so the test suite passing was not evidence the
+      Pattern1 format was right. Fixed by updating those tests to the
+      dash-free expected values and adding a dedicated regex regression
+      test (`^[SMTWRFA]*$`) at both the unit (`build_pattern1`) and
+      integration (`build_rows` output) level so a future regression to
+      dash-padding would be caught even if someone only skims the
+      pre-existing assertions.
+    tags: [self-review, testing, bug-fix]
+    date: 2026-08-05
+  - type: gap_found
+    summary: "Self-review's test-coverage lane caught that the AC3 integration test skipped the bug's own reproduction scope"
+    context: >
+      The first version of `test_generated_pattern1_column_matches_day_letters_only_regex`
+      looped over `week`/`weekday`/`weekend`/`random` but omitted
+      `specific_days`, which is the exact scope the bug report reproduced
+      with (`specific_days=["M","W","F"]` -> `"-M-W-F-"`). The unit-level
+      test already covered `specific_days`, but the row-construction
+      pipeline (`build_rows`) had no `specific_days` coverage, leaving a
+      gap where a future regression confined to the row-wiring path
+      (rather than `build_pattern1` itself) could slip through. Fixed by
+      adding an explicit `specific_days=["M","W","F"]` case to the
+      integration test, asserting both the regex and the exact expected
+      value `"MWF"`.
+    tags: [self-review, testing, bug-fix]
+    date: 2026-08-05
+
+ready_sha: "79665cce32677f2b681319120e30472f1a24f613"
+
+completion:
+  date: 2026-08-05
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/12"

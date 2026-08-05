@@ -1,0 +1,80 @@
+schema_version: "2026.04"
+status: done
+created: 2026-08-04
+updated: 2026-08-04
+
+# Origin (optional — informational, not a dependency)
+# source: "https://..."                 # Shareable origin breadcrumb, never a local filesystem path like /home/... or /Users/...
+# tracking_id: ""                       # External reference (Notion task, Jira ticket, etc.)
+
+# Dependencies (optional — advisory ordering, not execution blockers)
+# depends_on:
+#   - "SPEC-030"                        # Lightweight sequencing; upstream should usually be done first
+# blocked_by:
+#   - spec: "SPEC-030"
+#     until_status: "ready"            # required; ready | done
+
+# Coordination (optional — blast radius classification for parallel work)
+# coordination:
+#   blast_radius: ""                   # structural | isolated | mixed
+#   parallel_safe:                     # true only when blast_radius is isolated; do not set independently
+
+# Branching (optional — non-default branch topology for stacked or integration workflows)
+# branching:
+#   base_branch: ""                    # Branch to fork from; defaults to repo default branch when absent
+#   target_branch: ""                  # PR base branch; defaults to repo default branch when absent
+
+# Freshness snapshot (populate when status reaches ready)
+# ready_sha: ""                         # Full git HEAD commit recorded at the ready transition; used for advisory staleness checks
+
+# Completion (populate when status reaches done)
+# completion:
+#   date: 2026-08-04
+#   acceptance_criteria_waived:         # Omit if none waived
+#     - acceptance_criteria: ""
+#       rationale: ""
+#   self_review_waived:                 # Omit if none waived; pr-review blocking findings the user accepted to proceed
+#     - finding: ""
+#       rationale: ""
+#   pull_requests:
+#     - "https://github.com/..."
+
+# Learnings (add during and after execution)
+# learnings:
+#   - type: pattern_discovered          # See references/spec-format.md for all types
+#     summary: ""
+#     context: ""
+#     tags: []
+#     date: 2026-08-04
+ready_sha: "6600a26b39b38dc8ac180d038eace49e884c4817"
+
+completion:
+  date: 2026-08-04
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/9"
+
+learnings:
+  - type: pattern_discovered
+    summary: >
+      Row-assembly passthrough gaps (COLUMN_ORDER reserves a slot,
+      candidate DataFrame carries the value, but the dataclass/dict in
+      between never reads it) are fixed identically regardless of which
+      field is missing: add the field to SelectedStop, read it in
+      selected_stops_from_candidates(), add the key to row_by_col in
+      build_rows(). backend/generators/truck.py has the same
+      Latitude/Longitude gap (SPEC-001, out of scope here) and would be
+      fixed the same way if ever addressed.
+    context: "backend/generators/stop.py row-assembly pipeline"
+    tags: ["stop-generator", "row-assembly", "passthrough-bug"]
+    date: 2026-08-04
+  - type: constraint_confirmed
+    summary: >
+      Testing coordinate parity against both fixtures/stop/sample_location_db.xlsx
+      and the real backend/data/location_db.xlsx caught no divergence here,
+      but the real-DB assertion is worth keeping as a standing pattern for
+      this file's tests per the SPEC-003 fixture-vs-real-DB learning — the
+      lightweight fixture alone would not have caught a real-DB-specific
+      formatting quirk if one existed.
+    context: "tests/test_stop_generator.py::TestCoordinateCarryThrough"
+    tags: ["testing", "location_db", "fixture-vs-real-db"]
+    date: 2026-08-04

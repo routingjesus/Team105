@@ -1,0 +1,69 @@
+schema_version: "2026.04"
+status: done
+created: 2026-08-04
+updated: 2026-08-05
+
+# Origin (optional — informational, not a dependency)
+# source: "https://..."                 # Shareable origin breadcrumb, never a local filesystem path like /home/... or /Users/...
+# tracking_id: ""                       # External reference (Notion task, Jira ticket, etc.)
+
+# Dependencies (optional — advisory ordering, not execution blockers)
+# depends_on:
+#   - "SPEC-030"                        # Lightweight sequencing; upstream should usually be done first
+# blocked_by:
+#   - spec: "SPEC-030"
+#     until_status: "ready"            # required; ready | done
+
+coordination:
+  blast_radius: isolated
+  parallel_safe: true
+
+# Branching (optional — non-default branch topology for stacked or integration workflows)
+# branching:
+#   base_branch: ""                    # Branch to fork from; defaults to repo default branch when absent
+#   target_branch: ""                  # PR base branch; defaults to repo default branch when absent
+
+# Freshness snapshot (populate when status reaches ready)
+# ready_sha: ""                         # Full git HEAD commit recorded at the ready transition; used for advisory staleness checks
+
+# Completion (populate when status reaches done)
+# completion:
+#   date: 2026-08-04
+#   acceptance_criteria_waived:         # Omit if none waived
+#     - acceptance_criteria: ""
+#       rationale: ""
+#   self_review_waived:                 # Omit if none waived; pr-review blocking findings the user accepted to proceed
+#     - finding: ""
+#       rationale: ""
+#   pull_requests:
+#     - "https://github.com/..."
+
+# Learnings (add during and after execution)
+# learnings:
+#   - type: pattern_discovered          # See references/spec-format.md for all types
+#     summary: ""
+#     context: ""
+#     tags: []
+#     date: 2026-08-04
+ready_sha: "878eb75e8bb5101f883473d14530c860100d62f3"
+
+learnings:
+  - type: constraint_found
+    summary: "Averaged-mode volume jitter and formatting lived in one shared code path for both `fixed` and `averaged` VolumeAnswer modes, so a fix targeting only `averaged` had to split the format branch rather than adjust a shared constant."
+    context: >
+      `backend/generators/stop.py::_volume_cells` formatted every volume
+      cell with `f"{value:.2f}"` regardless of mode, and jittered
+      `averaged` mode by a flat +/-15%. Fixing AC1 (whole numbers) required
+      moving `fixed` mode to its own branch so its existing `"25.00"`
+      output stayed byte-identical, while `averaged` mode rounds via
+      `max(1, round(...))` and widens the jitter to +/-35% so the spread
+      is visibly wider on typical demo-sized stop counts (~10-50 stops)
+      without the schema's `VolumeAnswer.value` (still `float`) needing to
+      change.
+    tags: [stop-generator, volume, formatting, rounding]
+    date: 2026-08-05
+
+completion:
+  date: 2026-08-05
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/10"
