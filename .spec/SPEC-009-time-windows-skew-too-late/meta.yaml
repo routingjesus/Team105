@@ -1,0 +1,72 @@
+schema_version: "2026.04"
+status: done
+created: 2026-08-04
+updated: 2026-08-05
+
+# Origin (optional — informational, not a dependency)
+# source: "https://..."                 # Shareable origin breadcrumb, never a local filesystem path like /home/... or /Users/...
+# tracking_id: ""                       # External reference (Notion task, Jira ticket, etc.)
+
+# Dependencies (optional — advisory ordering, not execution blockers)
+# depends_on:
+#   - "SPEC-030"                        # Lightweight sequencing; upstream should usually be done first
+# blocked_by:
+#   - spec: "SPEC-030"
+#     until_status: "ready"            # required; ready | done
+
+coordination:
+  blast_radius: isolated
+  parallel_safe: true
+
+# Branching (optional — non-default branch topology for stacked or integration workflows)
+# branching:
+#   base_branch: ""                    # Branch to fork from; defaults to repo default branch when absent
+#   target_branch: ""                  # PR base branch; defaults to repo default branch when absent
+
+# Freshness snapshot (populate when status reaches ready)
+# ready_sha: ""                         # Full git HEAD commit recorded at the ready transition; used for advisory staleness checks
+
+# Completion (populate when status reaches done)
+# completion:
+#   date: 2026-08-04
+#   acceptance_criteria_waived:         # Omit if none waived
+#     - acceptance_criteria: ""
+#       rationale: ""
+#   self_review_waived:                 # Omit if none waived; pr-review blocking findings the user accepted to proceed
+#     - finding: ""
+#       rationale: ""
+#   pull_requests:
+#     - "https://github.com/..."
+
+learnings:
+  - type: pattern_discovered
+    summary: >
+      A "weighted band + small-probability tail" approach (draw from a
+      bounded realistic band most of the time; a low-probability branch
+      draws from the remaining range) is a lightweight way to bias a
+      stdlib `random.Random` draw toward a realistic distribution without
+      adding a numpy/scipy dependency. Reused the existing minutes-of-day
+      integer arithmetic and HHMM conversion already in
+      `build_time_window()` rather than introducing new representations.
+    context: "backend/generators/stop.py build_time_window() randomized branch"
+    tags: ["stop-generator", "randomization", "distribution-bias"]
+    date: 2026-08-05
+  - type: constraint_confirmed
+    summary: >
+      Statistical/distributional bugs (as opposed to crashes or wrong
+      values) need a large-sample test with generous thresholds (e.g.
+      3000 draws, >=75%/<=20% rather than the exact ~80/90 and ~10-15
+      target percentages from the problem statement) to avoid flakiness
+      from a single seed's sampling noise, while still failing hard
+      against the old uniform-across-the-day implementation (which
+      measured ~40%/36% on the same test, well outside the new
+      thresholds).
+    context: "tests/test_stop_generator.py::test_randomized_mode_biases_toward_business_hours"
+    tags: ["testing", "flakiness", "statistical-assertions"]
+    date: 2026-08-05
+ready_sha: "77cf428d5302f7fac3af6b7cf164e9bdaa0253af"
+
+completion:
+  date: 2026-08-05
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/11"
