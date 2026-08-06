@@ -123,3 +123,21 @@ entries:
     tags: [directroute, drproject-config, data-hygiene]
     date: 2026-08-05
     source_spec: SPEC-012
+
+  - type: pattern_discovered
+    summary: >
+      Consolidation-shared stop fields need within-stride equality tests
+      (len({value})==1), not allowlist/membership checks alone
+    context: >
+      When build_rows expands N line items from one SelectedStop, fields
+      drawn once per stop (Symbol/Color after SPEC-015, also Address,
+      FixedTime, coordinates) must be asserted equal across each stride
+      group of N rows. Row-level `value in ALLOWLIST` checks (SPEC-011
+      style) still pass when each line draws independently — a recurring
+      false-green pattern also seen for Frequency subset membership
+      (SPEC-006). Prefer the existing stride grouping used by
+      test_consolidation_shares_coordinates_across_line_items when adding
+      tests for any new per-stop shared column.
+    tags: [directroute, stop-file, testing, consolidation, false-green]
+    date: 2026-08-05
+    source_spec: SPEC-015

@@ -1,0 +1,71 @@
+schema_version: "2026.04"
+status: done
+created: 2026-08-05
+updated: 2026-08-05
+
+# Origin (optional — informational, not a dependency)
+# source: "https://..."                 # Shareable origin breadcrumb, never a local filesystem path like /home/... or /Users/...
+# tracking_id: ""                       # External reference (Notion task, Jira ticket, etc.)
+
+# Dependencies (optional — advisory ordering, not execution blockers)
+# depends_on:
+#   - "SPEC-030"                        # Lightweight sequencing; upstream should usually be done first
+# blocked_by:
+#   - spec: "SPEC-030"
+#     until_status: "ready"            # required; ready | done
+
+# Coordination (blast radius classification for parallel work)
+coordination:
+  blast_radius: isolated
+  parallel_safe: true
+
+# Branching (optional — non-default branch topology for stacked or integration workflows)
+# branching:
+#   base_branch: ""                    # Branch to fork from; defaults to repo default branch when absent
+#   target_branch: ""                  # PR base branch; defaults to repo default branch when absent
+
+# Freshness snapshot (populate when status reaches ready)
+# ready_sha: ""                         # Full git HEAD commit recorded at the ready transition; used for advisory staleness checks
+
+# Completion (populate when status reaches done)
+# completion:
+#   date: 2026-08-05
+#   acceptance_criteria_waived:         # Omit if none waived
+#     - acceptance_criteria: ""
+#       rationale: ""
+#   self_review_waived:                 # Omit if none waived; pr-review blocking findings the user accepted to proceed
+#     - finding: ""
+#       rationale: ""
+#   pull_requests:
+#     - "https://github.com/..."
+
+ready_sha: "01e09120da92628516ca954c6269db12eb0ea020"
+
+learnings:
+  - type: assumption_confirmed
+    summary: >
+      Hoisting Symbol/Color draws to per-stop scope (alongside eq_code /
+      volume_cells) is sufficient; no identity key or schema change needed.
+    context: >
+      build_rows already expands consolidation lines from one SelectedStop;
+      drawing once before the inner loop matches Address/FixedTime sharing
+      and preserves SPEC-011 seed streams when lines_per_customer == 1.
+    tags: [stop-generator, consolidation, shape, color]
+    date: 2026-08-05
+    source_spec: SPEC-015
+  - type: pattern_discovered
+    summary: >
+      Consolidation visual-marker tests must assert within-stride equality
+      (len({Symbol})==1), not only allowlist membership — SPEC-011 row-level
+      checks would green even when line items differed.
+    context: >
+      tests/test_stop_generator.py::test_consolidation_shares_symbol_and_color_across_line_items
+      follows the same stride grouping as coordinate/ID2 consolidation tests.
+    tags: [testing, consolidation, false-green]
+    date: 2026-08-05
+    source_spec: SPEC-015
+
+completion:
+  date: 2026-08-05
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/22"
