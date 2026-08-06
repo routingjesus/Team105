@@ -8,6 +8,7 @@ import {
   STOP_MIME,
   TRUCK_MIME,
 } from "@/lib/api";
+import { DATASET_ZIP_FILENAME, downloadDatasetZip } from "@/lib/zip";
 import { isAsciiText } from "@/lib/wizard-schema";
 import type {
   DrprojectConfigResponse,
@@ -32,6 +33,23 @@ export function Download({ truck, stop, drprojectConfig, stopConfig, onReset }: 
   const [branchError, setBranchError] = useState<string | undefined>();
   const [csvBusy, setCsvBusy] = useState(false);
   const [csvError, setCsvError] = useState<string | undefined>();
+  const [zipError, setZipError] = useState<string | undefined>();
+
+  const handleDownloadAll = useCallback(() => {
+    setZipError(undefined);
+    try {
+      downloadDatasetZip([
+        { filename: truck.filename, base64: truck.truck_file_base64 },
+        { filename: stop.filename, base64: stop.stop_file_base64, alreadyCompressed: true },
+        {
+          filename: drprojectConfig.filename,
+          base64: drprojectConfig.drproject_config_file_base64,
+        },
+      ]);
+    } catch (error) {
+      setZipError((error as Error).message || `Could not prepare ${DATASET_ZIP_FILENAME}.`);
+    }
+  }, [truck, stop, drprojectConfig]);
 
   const handleCsvDownload = useCallback(async () => {
     const trimmed = branch.trim();
@@ -118,7 +136,15 @@ export function Download({ truck, stop, drprojectConfig, stopConfig, onReset }: 
         >
           Download project config ({drprojectConfig.filename})
         </button>
+        <button type="button" className="primary" onClick={handleDownloadAll}>
+          Download All ({DATASET_ZIP_FILENAME})
+        </button>
       </div>
+      {zipError ? (
+        <p className="field-error" role="alert">
+          {zipError}
+        </p>
+      ) : null}
 
       <div className="csv-download">
         <FormRow
