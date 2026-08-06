@@ -69,3 +69,29 @@ entries:
     tags: [environment, windows, ports, ipv6, powershell]
     date: 2026-08-04
     source_spec: SPEC-004
+  - type: pattern_discovered
+    summary: "Embeddable CPython ._pth ignores CWD and PYTHONPATH; add a relative path to the app root so imports resolve"
+    context: >
+      Windows embeddable Python initializes sys.path only from python*._pth.
+      The current working directory is not on sys.path, and PYTHONPATH is
+      ignored while ._pth is present. A portable launcher that runs
+      `uvicorn backend.main:app` from the bundle's app/ directory will fail
+      `import backend.main` unless packaging adds a path such as `..\..\app`
+      (relative to runtime/python/) to the ._pth file. Regular CPython
+      venvs (e.g. run-local's .venv) do not need this.
+    tags: [environment, windows, python, embeddable, portable]
+    date: 2026-08-06
+    source_spec: SPEC-018
+  - type: pitfall
+    summary: "PowerShell packaging helpers must isolate return values from npm stdout and avoid unquoted robocopy on paths with spaces or !"
+    context: >
+      A function that runs `npm run build` and then `return $path` captures
+      npm's stdout as part of the function output in PowerShell 5.1 — the
+      caller receives build logs instead of the path. Pipe npm to Out-Host
+      (or otherwise discard success-stream noise) before returning a single
+      path. Separately, Start-Process robocopy with unquoted ArgumentList
+      splits paths like `C:\Users\...\ ! Cursor\...` on spaces; prefer
+      Copy-Item -LiteralPath tree copies or carefully quoted args.
+    tags: [environment, windows, powershell, packaging]
+    date: 2026-08-06
+    source_spec: SPEC-018

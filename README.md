@@ -28,6 +28,7 @@ Completed specs so far:
 | Matching shape/color per customer line items | SPEC-015 | [#22](https://github.com/routingjesus/Team105/pull/22) |
 | Stops CSV download (Branch/Action) | SPEC-016 | [#24](https://github.com/routingjesus/Team105/pull/24) |
 | Manual location entry with geocoding | SPEC-017 | [#23](https://github.com/routingjesus/Team105/pull/23) |
+| Portable Windows wizard zip | SPEC-018 | *(in progress)* |
 Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
 `spec-dashboard` skill) for the full lifecycle view.
 
@@ -35,7 +36,8 @@ Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
 
 The core wizard scope is complete. Sensible follow-ons:
 
-- **Demo to a reviewer:** `.\run-local.cmd -Share` prints a public tunnel URL.
+- **Demo without a toolchain:** build the [portable Windows zip](#portable-windows-zip-no-toolchain) and send it to a reviewer.
+- **Demo to a reviewer (dev machine):** `.\run-local.cmd -Share` prints a public tunnel URL.
 - **New work:** run `create-spec` to scaffold the next backlog item.
 - **DirectRoute verification:** run the [smoke test checklist](#directroute-smoke-test) once on a machine with DirectRoute 26.x installed.
 
@@ -85,6 +87,30 @@ and the same command works behind a tunnel or on a teammate's machine.
 **`-Share` security:** the tunnel URL is ephemeral, world-reachable, and
 bypasses your firewall/NAT. Treat it as a secret, only the proxied frontend is
 exposed, and never demo with real PII or production credentials.
+
+### Portable Windows zip (no toolchain)
+
+For teammates or reviewers who should not install Node/Python/Git, package a
+self-contained zip on a developer machine, then send the artifact:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\package-portable.ps1
+# or: npm run package:portable
+```
+
+That writes `build\portable\Team105-Wizard-win-x64.zip` (embedded Node +
+Python, prebuilt UI, FastAPI backend with `location_db.xlsx` /
+`DRProject.config`). Recipients extract to a **writable** folder (Desktop or
+Documents — not Program Files), unblock if SmartScreen tags the zip
+(`Unblock-File` or zip Properties → Unblock), and double-click
+`Team105-Wizard.cmd`.
+
+The portable launcher **requires API port 8080** (the UI proxy is baked at
+package time). If 8080 is busy, it exits with a clear error instead of moving
+the API. Optional geocoding needs `TRIMBLE_MAPS_API_KEY` in the environment;
+no key is shipped in the zip. Day-to-day development still uses `run-local.cmd`
+from a git checkout — the zip is distribution only. See `README.txt` inside
+the zip for end-user steps.
 
 ### Known-good demo depot
 

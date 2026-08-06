@@ -14,11 +14,14 @@ describe("hasValidCoordinates", () => {
     expect(
       hasValidCoordinates({
         address: "a",
+        address2: "",
         city: "b",
         state: "c",
         zip: "d",
         latitude: 39.7,
         longitude: -104.9,
+        inLocationDb: false,
+        showManualCoords: false,
       }),
     ).toBe(true);
   });
@@ -27,11 +30,14 @@ describe("hasValidCoordinates", () => {
     expect(
       hasValidCoordinates({
         address: "a",
+        address2: "",
         city: "b",
         state: "c",
         zip: "d",
         latitude: 95,
         longitude: -104.9,
+        inLocationDb: false,
+        showManualCoords: false,
       }),
     ).toBe(false);
   });

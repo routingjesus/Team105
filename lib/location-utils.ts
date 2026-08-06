@@ -4,15 +4,15 @@ export type GeoSource = "api" | "manual" | null;
 
 export interface LocationFields {
   address: string;
-  address2?: string;
+  address2: string;
   city: string;
   state: string;
   zip: string;
   latitude?: number;
   longitude?: number;
   geoSource?: GeoSource;
-  inLocationDb?: boolean;
-  showManualCoords?: boolean;
+  inLocationDb: boolean;
+  showManualCoords: boolean;
 }
 
 export const emptyLocationFields = (): LocationFields => ({
