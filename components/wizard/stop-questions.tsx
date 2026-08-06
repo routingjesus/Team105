@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useController, useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import {
   DAY_LABELS,
@@ -9,8 +9,10 @@ import {
   FREQUENCY_VALUES,
   type DayLetter,
 } from "@/lib/wizard-types";
+import { emptyLocationFields, normalizeAddressKey } from "@/lib/location-utils";
 import type { WizardFormValues } from "@/lib/wizard-schema";
 import { NumberField, TextField } from "./fields";
+import { LocationEntryPanel } from "./location-entry-panel";
 
 /**
  * "Stop details" step. Continues the same flow as the route step with no phase
@@ -29,7 +31,20 @@ export function StopQuestions() {
   const volumes = useWatch({ control, name: "volumes" });
 
   const volumeAnswers = useFieldArray({ control, name: "volumeAnswers" });
+  const manualStops = useFieldArray({ control, name: "manualStops" });
+  const [sessionKeys, setSessionKeys] = useState<Set<string>>(() => new Set());
+  const manualStopValues = useWatch({ control, name: "manualStops" });
   const namesKey = (volumes ?? []).map((v) => v?.name ?? "").join("|");
+
+  const sessionKeySet = useMemo(() => {
+    const keys = new Set(sessionKeys);
+    for (const stop of manualStopValues ?? []) {
+      if (stop.inLocationDb) {
+        keys.add(normalizeAddressKey(stop.address, stop.city, stop.state, stop.zip));
+      }
+    }
+    return keys;
+  }, [manualStopValues, sessionKeys]);
 
   // Keep one volume answer per named volume, preserving existing answers by name.
   useEffect(() => {
@@ -106,6 +121,40 @@ export function StopQuestions() {
             placeholder="UT, NV"
           />
         )}
+      </fieldset>
+
+      <fieldset className="group">
+        <legend>Manual stop locations (optional)</legend>
+        <p className="field-hint">
+          Add specific customer locations that are not already in the bundled database. Geocode or
+          enter coordinates, then save each stop to the location database before generating.
+        </p>
+        {manualStops.fields.map((field, index) => (
+          <div className="repeat-row" key={field.id}>
+            <div className="repeat-row-header">
+              <h3>Manual stop {index + 1}</h3>
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => manualStops.remove(index)}
+              >
+                Remove
+              </button>
+            </div>
+            <LocationEntryPanel
+              namePrefix={`manualStops.${index}`}
+              sessionKeys={sessionKeySet}
+              onSessionKeyAdded={(key) => setSessionKeys((prev) => new Set(prev).add(key))}
+            />
+          </div>
+        ))}
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => manualStops.append(emptyLocationFields())}
+        >
+          + Add manual stop
+        </button>
       </fieldset>
 
       <div className="grid-2">

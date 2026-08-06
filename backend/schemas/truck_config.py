@@ -91,6 +91,8 @@ class DepotSummary(BaseModel):
     state: str
     zip: str
     truck_count: int
+    latitude: float | None = Field(default=None, description="Inline WGS84 latitude (SPEC-017)")
+    longitude: float | None = Field(default=None, description="Inline WGS84 longitude (SPEC-017)")
 
 
 class TruckGenerationResponse(BaseModel):

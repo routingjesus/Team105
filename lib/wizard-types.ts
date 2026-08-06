@@ -45,6 +45,8 @@ export interface DepotSummary {
   state: string;
   zip: string;
   truck_count: number;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface TruckGenerationResponse {
@@ -155,7 +157,49 @@ export interface FastApiValidationDetail {
 }
 
 export interface FastApiErrorBody {
-  detail?: string | FastApiValidationDetail[];
+  detail?: string | FastApiValidationDetail[] | Record<string, unknown>;
+}
+
+// --- Location geocode / persist (SPEC-017) ---
+
+export interface GeocodeRequest {
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+export interface GeocodeResponse {
+  latitude: number;
+  longitude: number;
+  formatted_address?: string | null;
+  provider: string;
+}
+
+export interface LocationEntry {
+  address: string;
+  address2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface LocationAppendResponse {
+  name: string;
+  id1: string;
+  latitude: number;
+  longitude: number;
+  message: string;
+}
+
+export interface LocationDuplicateResponse {
+  existing_name: string;
+  existing_id1: string;
+  latitude: number;
+  longitude: number;
+  message: string;
 }
 
 /**

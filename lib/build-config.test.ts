@@ -5,7 +5,7 @@ import type { TruckGenerationResponse } from "./wizard-types";
 
 const values: WizardFormValues = {
   ...defaultWizardValues,
-  depots: [{ address: "1 Warehouse Way", city: "Salt Lake City", state: "UT", zip: "84101", trucks: 5 }],
+  depots: [{ ...defaultWizardValues.depots[0], address: "1 Warehouse Way", city: "Salt Lake City", state: "UT", zip: "84101" }],
   volumes: [{ name: "Cases", capacity: 2000 }],
   volumeAnswers: [{ name: "Cases", mode: "averaged", value: 40 }],
 };
@@ -51,7 +51,13 @@ describe("buildTruckConfig", () => {
 describe("buildStopConfig", () => {
   it("derives depots/weeks/volumes from the truck response", () => {
     const config = buildStopConfig(values, truckResponse);
-    expect(config.depots).toEqual(truckResponse.depots);
+    expect(config.depots).toEqual([
+      {
+        ...truckResponse.depots[0],
+        latitude: null,
+        longitude: null,
+      },
+    ]);
     expect(config.weeks).toBe(truckResponse.weeks);
     expect(config.volumes).toEqual(truckResponse.volume_names);
   });

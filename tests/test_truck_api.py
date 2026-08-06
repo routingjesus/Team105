@@ -48,6 +48,8 @@ class TestGenerateEndpoint:
             "state": "TX",
             "zip": "75201",
             "truck_count": 5,
+            "latitude": None,
+            "longitude": None,
         }
         assert [v["name"] for v in body["volume_names"]] == ["Cube", "Weight"]
         assert [v["capacity"] for v in body["volume_names"]] == [1800, 44000]

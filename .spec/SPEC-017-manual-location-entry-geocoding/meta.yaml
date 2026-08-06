@@ -1,0 +1,26 @@
+schema_version: "2026.04"
+status: done
+created: 2026-08-05
+updated: 2026-08-05
+
+source: "https://developer.trimblemaps.com/restful-apis/location/single-search/single-search-api/"
+
+depends_on:
+  - "SPEC-002"
+  - "SPEC-003"
+  - "SPEC-005"
+
+coordination:
+  blast_radius: mixed
+  parallel_safe: false
+ready_sha: "01e09120da92628516ca954c6269db12eb0ea020"
+
+learnings:
+  - "DepotSummary needed optional inline latitude/longitude so generation works before persist (AC 2); pre-insert alone was insufficient."
+  - "filelock + tempfile atomic replace on xlsx append survived threaded pytest without corruption."
+  - "Trimble adapter caches by normalized address key in-process; rate limit is 250/min per worker."
+  - "LocationEntryPanel shared between depot and manual-stop rows; geoSource manual disables re-geocode button (AC 11)."
+
+completion:
+  date: 2026-08-05
+  pull_requests: []

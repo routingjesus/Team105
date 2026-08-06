@@ -2,6 +2,11 @@ import type {
   FastApiErrorBody,
   FastApiValidationDetail,
   DrprojectConfigResponse,
+  GeocodeRequest,
+  GeocodeResponse,
+  LocationAppendResponse,
+  LocationDuplicateResponse,
+  LocationEntry,
   StopConfig,
   StopGenerationResponse,
   TruckConfig,
@@ -194,6 +199,48 @@ export function generateStops(config: StopConfig): Promise<StopGenerationRespons
 
 export function generateDrprojectConfig(config: StopConfig): Promise<DrprojectConfigResponse> {
   return postJson<DrprojectConfigResponse>("/api/drproject-config/generate", config);
+}
+
+export function geocodeLocation(request: GeocodeRequest): Promise<GeocodeResponse> {
+  return postJson<GeocodeResponse>("/api/locations/geocode", request);
+}
+
+export class LocationDuplicateError extends Error {
+  readonly duplicate: LocationDuplicateResponse;
+
+  constructor(duplicate: LocationDuplicateResponse) {
+    super(duplicate.message);
+    this.name = "LocationDuplicateError";
+    this.duplicate = duplicate;
+  }
+}
+
+export async function appendLocation(entry: LocationEntry): Promise<LocationAppendResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/locations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(entry),
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      [],
+      `Could not reach the generation service at ${API_BASE_URL}. Is the backend running?`,
+    );
+  }
+
+  if (response.status === 409) {
+    const body = (await response.json()) as { detail: LocationDuplicateResponse };
+    throw new LocationDuplicateError(body.detail);
+  }
+
+  if (!response.ok) {
+    throw await parseErrorBody(response);
+  }
+
+  return (await response.json()) as LocationAppendResponse;
 }
 
 /** Decode base64 file content (from a `generate` response) into a Blob. */

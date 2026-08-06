@@ -1,17 +1,32 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
+import { normalizeAddressKey } from "@/lib/location-utils";
 import type { WizardFormValues } from "@/lib/wizard-schema";
 import { NumberField, TextField } from "./fields";
+import { LocationEntryPanel } from "./location-entry-panel";
 
 /**
  * "Route details" step. Deliberately framed as route/fleet setup — the file
  * type being built (the .TRUCK file) is never surfaced to the user (AC 1).
  */
 export function TruckQuestions() {
-  const { control, getFieldState, formState } = useFormContext<WizardFormValues>();
+  const { control, getFieldState, formState, watch } = useFormContext<WizardFormValues>();
   const depots = useFieldArray({ control, name: "depots" });
   const volumes = useFieldArray({ control, name: "volumes" });
+  const [sessionKeys, setSessionKeys] = useState<Set<string>>(() => new Set());
+  const depotValues = watch("depots");
+
+  const sessionKeySet = useMemo(() => {
+    const keys = new Set(sessionKeys);
+    for (const depot of depotValues ?? []) {
+      if (depot.inLocationDb) {
+        keys.add(normalizeAddressKey(depot.address, depot.city, depot.state, depot.zip));
+      }
+    }
+    return keys;
+  }, [depotValues, sessionKeys]);
 
   const depotsError = getFieldState("depots", formState).error;
   const volumesError = getFieldState("volumes", formState).error;
@@ -55,29 +70,37 @@ export function TruckQuestions() {
                 </button>
               ) : null}
             </div>
-            <div className="grid-2">
-              <TextField
-                name={`depots.${index}.address`}
-                label="Street address"
-                placeholder="123 Warehouse Way"
-                autoComplete="off"
-              />
-              <TextField name={`depots.${index}.city`} label="City" placeholder="Salt Lake City" />
-              <TextField name={`depots.${index}.state`} label="State" placeholder="UT" />
-              <TextField name={`depots.${index}.zip`} label="ZIP" placeholder="84101" />
-              <NumberField
-                name={`depots.${index}.trucks`}
-                label="Trucks at this depot"
-                min={1}
-                step={1}
-              />
-            </div>
+            <LocationEntryPanel
+              namePrefix={`depots.${index}`}
+              sessionKeys={sessionKeySet}
+              onSessionKeyAdded={(key) => setSessionKeys((prev) => new Set(prev).add(key))}
+            />
+            <NumberField
+              name={`depots.${index}.trucks`}
+              label="Trucks at this depot"
+              min={1}
+              step={1}
+            />
           </div>
         ))}
         <button
           type="button"
           className="secondary"
-          onClick={() => depots.append({ address: "", city: "", state: "", zip: "", trucks: 5 })}
+          onClick={() =>
+            depots.append({
+              address: "",
+              address2: "",
+              city: "",
+              state: "",
+              zip: "",
+              trucks: 5,
+              latitude: undefined,
+              longitude: undefined,
+              geoSource: null,
+              inLocationDb: false,
+              showManualCoords: false,
+            })
+          }
         >
           + Add depot
         </button>
