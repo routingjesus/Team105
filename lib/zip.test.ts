@@ -61,13 +61,12 @@ describe("downloadDatasetZip", () => {
     const createSpy = vi.fn((_blob: Blob | MediaSource) => "blob:mock");
     const revokeSpy = vi.fn();
     vi.stubGlobal("URL", { ...URL, createObjectURL: createSpy, revokeObjectURL: revokeSpy });
+    let downloadName: string | undefined;
     const clickSpy = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(() => undefined);
-    let downloadName: string | undefined;
-    clickSpy.mockImplementation(function (this: HTMLAnchorElement) {
-      downloadName = this.download;
-    });
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        downloadName = this.download;
+      });
 
     downloadDatasetZip(entries);
 
