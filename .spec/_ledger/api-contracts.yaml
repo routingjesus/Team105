@@ -8,7 +8,7 @@ entries:
       file content; POST /api/trucks/download takes the same request body and
       returns raw bytes with a Content-Disposition attachment header.
       backend/schemas/truck_config.py is the canonical Pydantic contract that
-      SPEC-002 (stop generator) and SPEC-003 (wizard UI) mirror — extend it
+      SPEC-002 (stop generator) and SPEC-003 (wizard UI) mirror â€” extend it
       rather than defining parallel models.
     tags: [api-contract, fastapi, file-delivery]
     date: 2026-07-30
@@ -31,16 +31,18 @@ entries:
     source_spec: SPEC-003
 
   - type: pattern_discovered
-    summary: "Third artifact generators can reuse StopConfig as the request body — no parallel schema needed"
+    summary: "Sibling download artifacts reuse StopConfig (optionally extended) and must keep that config available on the download step"
     context: >
-      SPEC-012's DRProject.config generator only reads aliases and volumes,
-      both already on StopConfig after truck generation. Accepting StopConfig
-      directly for POST /api/drproject-config/{generate,download} avoids a
-      third request shape and lets the wizard call
+      SPEC-012's DRProject.config generator accepts StopConfig for
+      POST /api/drproject-config/{generate,download} so the wizard can call
       generateDrprojectConfig(stopConfig) with the same object passed to
-      generateStops. When a new artifact derives from wizard answers already
-      captured on an existing config model, extend the paired-endpoint pattern
-      with that model before inventing a parallel Pydantic schema.
-    tags: [api-contract, fastapi, file-delivery, drproject-config]
+      generateStops. SPEC-016 extended the pattern with StopCsvRequest
+      (StopConfig + download-time branch) and sibling
+      /api/stops-csv/{generate,download}. Plumb stopConfig into
+      components/wizard/download.tsx; collect Branch (or similar) only on
+      the download step — do not persist download-time fields in
+      use-wizard-persistence or lib/build-config.ts. Prefer extending an
+      existing config model over inventing a parallel Pydantic schema.
+    tags: [api-contract, fastapi, file-delivery, drproject-config, wizard]
     date: 2026-08-05
     source_spec: SPEC-012
