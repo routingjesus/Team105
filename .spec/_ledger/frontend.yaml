@@ -36,3 +36,21 @@ entries:
     tags: [frontend, next, env, dotenv, proxy]
     date: 2026-08-04
     source_spec: SPEC-004
+  - type: constraint_found
+    summary: "TS 5.9 generic typed arrays trip both Blob construction and vitest equality around fflate"
+    context: >
+      Two gotchas whenever binary payloads flow through libraries whose types
+      predate TypeScript's generic typed arrays (fflate 0.8.x here). (1) A
+      value typed plain `Uint8Array` resolves to Uint8Array<ArrayBufferLike>,
+      which `new Blob([...])` rejects (SharedArrayBuffer is not a valid
+      BlobPart) — annotate decode helpers as Uint8Array<ArrayBuffer> (see
+      base64ToUint8Array in lib/api.ts) and cast library returns that allocate
+      fresh buffers (zipSync in lib/zip.ts). (2) vitest's toEqual on typed
+      arrays is sensitive to the underlying buffer view, not just bytes:
+      fflate's unzipSync returns subarray views over a shared buffer, so
+      byte-identical arrays fail with "Compared values have no visual
+      difference" — compare Array.from(bytes) on both sides (see
+      lib/zip.test.ts).
+    tags: [frontend, typescript, vitest, fflate, typed-arrays]
+    date: 2026-08-06
+    source_spec: SPEC-018

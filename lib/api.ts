@@ -250,14 +250,19 @@ export async function appendLocation(entry: LocationEntry): Promise<LocationAppe
   return (await response.json()) as LocationAppendResponse;
 }
 
-/** Decode base64 file content (from a `generate` response) into a Blob. */
-export function base64ToBlob(base64: string, mimeType: string): Blob {
+/** Decode base64 file content (from a `generate` response) into raw bytes. */
+export function base64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return new Blob([bytes], { type: mimeType });
+  return bytes;
+}
+
+/** Decode base64 file content (from a `generate` response) into a Blob. */
+export function base64ToBlob(base64: string, mimeType: string): Blob {
+  return new Blob([base64ToUint8Array(base64)], { type: mimeType });
 }
 
 /** Trigger a browser download for a Blob (single user gesture, popup-safe). */

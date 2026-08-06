@@ -28,6 +28,7 @@ Completed specs so far:
 | Matching shape/color per customer line items | SPEC-015 | [#22](https://github.com/routingjesus/Team105/pull/22) |
 | Stops CSV download (Branch/Action) | SPEC-016 | [#24](https://github.com/routingjesus/Team105/pull/24) |
 | Manual location entry with geocoding | SPEC-017 | [#23](https://github.com/routingjesus/Team105/pull/23) |
+| Download All zip on final step | SPEC-018 | [#25](https://github.com/routingjesus/Team105/pull/25) |
 Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
 `spec-dashboard` skill) for the full lifecycle view.
 
@@ -230,7 +231,9 @@ Optionally download `stops.csv` (SPEC-016) from the same step after entering a
 Branch name — leading Branch/Action columns plus the same stop content as the
 xlsx, for OIS-style import testing.
 
-Download the primary three from the final wizard step. Copy `DRProject.config`
+Download the primary three from the final wizard step — individually, or in
+one click as `dataset.zip` via **Download All** (SPEC-018; same bytes, zipped
+client-side). Copy `DRProject.config`
 into the DirectRoute user data directory configured under **File → Preferences**
 (this app cannot write to that path from the browser). Then import the truck
 and stop files into DirectRoute (trucks first, then stops) to build a routing

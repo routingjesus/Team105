@@ -130,6 +130,68 @@ describe("DatasetWizard", () => {
     expect(clickSpy).toHaveBeenCalledTimes(3);
   });
 
+  it("downloads a single zip via Download All without requiring a Branch name (SPEC-018)", async () => {
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const u = String(url);
+      if (u.includes("/api/trucks/generate")) return okJson(truckResponse);
+      if (u.includes("/api/stops/generate")) return okJson(stopResponse);
+      if (u.includes("/api/drproject-config/generate")) return okJson(drprojectConfigResponse);
+      throw new Error(`unexpected url ${u}`);
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const user = userEvent.setup();
+    render(<DatasetWizard />);
+    await fillDepot(user);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Stop details" });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Check your answers" });
+    await user.click(screen.getByRole("button", { name: "Generate dataset" }));
+    await screen.findByRole("heading", { name: "Your dataset is ready" });
+
+    // Branch name stays empty — the zip must not depend on it.
+    await user.click(screen.getByRole("button", { name: /Download All/ }));
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Required")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // No extra network traffic — the zip is built from in-memory payloads.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("shows an alert when zip preparation fails and keeps individual downloads usable (SPEC-018)", async () => {
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const u = String(url);
+      // Invalid base64 makes the zip decode throw; the stop file stays valid.
+      if (u.includes("/api/trucks/generate"))
+        return okJson({ ...truckResponse, truck_file_base64: "!!!" });
+      if (u.includes("/api/stops/generate")) return okJson(stopResponse);
+      if (u.includes("/api/drproject-config/generate")) return okJson(drprojectConfigResponse);
+      throw new Error(`unexpected url ${u}`);
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const user = userEvent.setup();
+    render(<DatasetWizard />);
+    await fillDepot(user);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Stop details" });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Check your answers" });
+    await user.click(screen.getByRole("button", { name: "Generate dataset" }));
+    await screen.findByRole("heading", { name: "Your dataset is ready" });
+
+    await user.click(screen.getByRole("button", { name: /Download All/ }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(clickSpy).not.toHaveBeenCalled();
+
+    // Individual downloads are unaffected by the zip failure.
+    await user.click(screen.getByRole("button", { name: /Download stop file/ }));
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("gates stops CSV download on a non-empty Branch name (SPEC-016)", async () => {
     const fetchMock = vi.fn(async (url: string | URL) => {
       const u = String(url);
