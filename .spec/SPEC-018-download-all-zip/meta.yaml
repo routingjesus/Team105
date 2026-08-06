@@ -50,7 +50,8 @@ ready_sha: "4c8487c4022dde060f22e5dff32ea71b445f7d4d"
 
 completion:
   date: 2026-08-06
-  pull_requests: []
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/25"
 
 learnings:
   - type: constraint_found
