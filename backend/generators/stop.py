@@ -305,6 +305,8 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
                 row_by_col["Symbol"] = rng.choice(SHAPE_VALUES)
             if config.generate_colors:
                 row_by_col["Color"] = rng.choice(COLOR_VALUES)
+            if config.generate_shapes or config.generate_colors:
+                row_by_col["Size"] = "28"
             row = []
             for col in COLUMN_ORDER:
                 if col == VOLUMES_MARKER:
