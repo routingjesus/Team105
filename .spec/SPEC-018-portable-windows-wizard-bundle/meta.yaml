@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: ready
+status: in_progress
 created: 2026-08-06
 updated: 2026-08-06
 
@@ -31,10 +31,15 @@ coordination:
 #     - "https://github.com/..."
 
 # Learnings (add during and after execution)
-# learnings:
-#   - type: pattern_discovered          # See references/spec-format.md for all types
-#     summary: ""
-#     context: ""
-#     tags: []
-#     date: 2026-08-06
+learnings:
+  - type: pattern_discovered
+    summary: "Embeddable CPython ._pth ignores CWD and PYTHONPATH; package must add a relative ..\\..\\app entry so uvicorn can import backend.main"
+    context: "Without that ._pth line, launch-portable fails at the backend.main probe even though backend/ sits in the launcher CWD. Regular CPython (run-local .venv) does not need this."
+    tags: [portable, python, embeddable, windows]
+    date: 2026-08-06
+  - type: pitfall
+    summary: "PowerShell functions must not return paths after bare npm/robocopy stdout; pipe npm to Out-Host and avoid unquoted robocopy args on paths with spaces/!"
+    context: "Build-NextStandalone initially returned npm build logs as the standalone path; Start-Process robocopy split C:\\...\\! Cursor\\... on spaces. Use Copy-Item tree copy instead."
+    tags: [powershell, packaging, windows]
+    date: 2026-08-06
 ready_sha: "a5fc2f063fc248ae0ff21b0858294f00816a7133"
