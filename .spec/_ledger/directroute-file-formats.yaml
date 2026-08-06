@@ -6,7 +6,7 @@ entries:
       Truck File") documents EDate/LDate as day offsets where 1 = dispatch
       date. SPEC-001's research gate had assumed VBA DateSerial text
       representations would need replicating; the field reference overruled
-      that — backend/generators/truck.py emits plain integers (EDate = LDate
+      that â€” backend/generators/truck.py emits plain integers (EDate = LDate
       = dispatch-day index). When porting macro fields, check the DirectRoute
       field reference before assuming Excel-side representations carry over.
     tags: [directroute, truck-file, file-format, edate-ldate]
@@ -21,7 +21,7 @@ entries:
       parity for volume-less requests. Volumes are optional in the API schema
       even though the wizard UI requires at least one. The ordered
       column-definition table in backend/generators/truck.py makes column
-      extensions a data change, not an emitter fork — follow that pattern for
+      extensions a data change, not an emitter fork â€” follow that pattern for
       any future .TRUCK column additions.
     tags: [directroute, truck-file, file-format, volumes]
     date: 2026-07-30
@@ -39,14 +39,14 @@ entries:
       normal input. SPEC-002's unit tests missed it because their sample fixture
       DB was clean. Fix: strip string columns in load_location_db (emitted stop
       rows are already stripped by generators.stop._clean, so output is
-      unchanged). When matching against this DB — or any legacy Excel export —
+      unchanged). When matching against this DB â€” or any legacy Excel export â€”
       normalize whitespace on load and always test against the real data file.
     tags: [directroute, location-db, data-hygiene, stop-file]
     date: 2026-08-04
     source_spec: SPEC-003
 
     # Corroborated by SPEC-005: the coordinate carry-through fix's real-DB
-    # assertion found no divergence from the fixture, but keep testing both —
+    # assertion found no divergence from the fixture, but keep testing both â€”
     # the fixture wouldn't have caught a real-DB-only quirk if one existed.
 
   - type: pattern_discovered
@@ -56,15 +56,15 @@ entries:
       slots since SPEC-002, and the candidate DataFrame carried real values
       through the entire filter/thin pipeline (backend/services/spatial.py),
       but SelectedStop, selected_stops_from_candidates(), and the row_by_col
-      dict in build_rows() never read or set them — so every output row
+      dict in build_rows() never read or set them â€” so every output row
       rendered blank cells with no error. The fix is always the same three
       edits: add the field to the row dataclass, read it off the candidate
       row, add the key to row_by_col using the exact COLUMN_ORDER name.
       backend/generators/truck.py (SPEC-001) has the identical unfixed gap
-      for its own Longitude/Latitude columns — apply the same three-edit
+      for its own Longitude/Latitude columns â€” apply the same three-edit
       pattern there if that generator is ever extended to carry coordinates.
       Regression-proof this class of bug with a direct source-to-output
-      equality assertion per field, not just a non-blank check — "column
+      equality assertion per field, not just a non-blank check â€” "column
       present in the header" and "value actually populated" are different
       claims.
     tags: [directroute, stop-file, truck-file, row-assembly, passthrough-bug]
@@ -86,7 +86,7 @@ entries:
       ID1 slot), establishing that aliased headers are safe for DirectRoute
       import, not new risk surface. Before adding aliasing for a new column
       or building a parallel rename mechanism, check ALIAS_FIELD_MAP and
-      build_header() first — SPEC-010 found the ID2/ID3 mechanism already
+      build_header() first â€” SPEC-010 found the ID2/ID3 mechanism already
       shipped end-to-end from SPEC-002 and only needed a wizard UX/gating
       change (promoting the fields out of an advanced toggle), not new
       backend work.
@@ -98,11 +98,11 @@ entries:
     summary: "DRProject.config is UTF-8 XML with root AppSettings; wizard-driven content lives under Configuration/Stop"
     context: >
       DirectRoute expects a file named exactly DRProject.config inside each
-      user data directory (File → Preferences). The golden template at
+      user data directory (File â†’ Preferences). The golden template at
       fixtures/drproject-config/DRProject.config confirms structure: root
       <AppSettings> with <Configuration> (stop field aliases and
       Quantities) plus a large <Preferences> tree (routing defaults,
-      geocoding, map settings). Depot addresses are not in this file — it
+      geocoding, map settings). Depot addresses are not in this file â€” it
       maps stop-file column display names, not routing geography. Substitution
       targets align with AliasConfig and VolumeSpec from stop/truck schemas.
       backend/generators/drproject_config.py loads backend/data/DRProject.config
@@ -117,12 +117,38 @@ entries:
       The owner template contained local filesystem paths (RecentFilesList,
       DistanceFile, MergeDirectoryAndFileSettings) and encrypted DRTrack
       credentials. These are environment-specific and must always be emitted
-      empty in generated output regardless of wizard input — same data-hygiene
+      empty in generated output regardless of wizard input â€” same data-hygiene
       principle as scrubbing proprietary paths from bundled fixtures before
       commit.
     tags: [directroute, drproject-config, data-hygiene]
     date: 2026-08-05
     source_spec: SPEC-012
+
+  - type: pattern_discovered
+    summary: "Subset flags on stop rows use dedicated Random(seed) after build_rows with k = min(N, max(1, round(fraction*N)))"
+    context: >
+      EQ-code assignment and SPEC-016 Action Delete both need an exact
+      subset of output rows. Sampling on the same RNG stream as build_rows
+      couples indices to row-builder consumption. After materializing rows
+      in backend/generators/stop.py, create random.Random(config.seed) and
+      sample k indices. Tests should recompute expected indices with an
+      independent Random(seed).sample rather than asserting the SUT against
+      itself.
+    tags: [rng, stop-generator, testing, directroute]
+    date: 2026-08-05
+    source_spec: SPEC-016
+
+  - type: gotcha
+    summary: "Excel-friendly stop CSV: csv.writer with csv.excel dialect into StringIO(newline=''), then encode utf-8-sig"
+    context: >
+      Hand-built CSV strings mishandle commas in addresses. Python's
+      csv.excel dialect supplies comma, QUOTE_MINIMAL, and CRLF;
+      StringIO(newline='') preserves those endings. Encode with utf-8-sig
+      so Windows Excel double-click-opens UTF-8 correctly (BOM EF BB BF).
+      Used by generate_stop_csv_file in backend/generators/stop.py.
+    tags: [csv, excel, stop-generator, directroute]
+    date: 2026-08-05
+    source_spec: SPEC-016
 
   - type: pattern_discovered
     summary: >

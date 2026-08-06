@@ -8,6 +8,8 @@ import type {
   LocationDuplicateResponse,
   LocationEntry,
   StopConfig,
+  StopCsvGenerationResponse,
+  StopCsvRequest,
   StopGenerationResponse,
   TruckConfig,
   TruckGenerationResponse,
@@ -36,6 +38,7 @@ export const API_BASE_URL = resolveApiBaseUrl();
 export const TRUCK_MIME = "text/tab-separated-values";
 export const STOP_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 export const DRPROJECT_CONFIG_MIME = "application/xml";
+export const STOP_CSV_MIME = "text/csv";
 
 export interface FieldError {
   /** RHF field path (dot/bracket notation). */
@@ -199,6 +202,10 @@ export function generateStops(config: StopConfig): Promise<StopGenerationRespons
 
 export function generateDrprojectConfig(config: StopConfig): Promise<DrprojectConfigResponse> {
   return postJson<DrprojectConfigResponse>("/api/drproject-config/generate", config);
+}
+
+export function generateStopsCsv(request: StopCsvRequest): Promise<StopCsvGenerationResponse> {
+  return postJson<StopCsvGenerationResponse>("/api/stops-csv/generate", request);
 }
 
 export function geocodeLocation(request: GeocodeRequest): Promise<GeocodeResponse> {

@@ -1,29 +1,74 @@
 "use client";
 
-import { downloadBase64, DRPROJECT_CONFIG_MIME, STOP_MIME, TRUCK_MIME } from "@/lib/api";
+import { useCallback, useState } from "react";
+import {
+  downloadBase64,
+  downloadFile,
+  DRPROJECT_CONFIG_MIME,
+  STOP_MIME,
+  TRUCK_MIME,
+} from "@/lib/api";
+import { isAsciiText } from "@/lib/wizard-schema";
 import type {
   DrprojectConfigResponse,
+  StopConfig,
   StopGenerationResponse,
   TruckGenerationResponse,
 } from "@/lib/wizard-types";
+import { FormRow } from "./fields";
+
+const ASCII_MESSAGE = "Use standard characters only (no accents, tabs, or line breaks)";
 
 interface DownloadProps {
   truck: TruckGenerationResponse;
   stop: StopGenerationResponse;
   drprojectConfig: DrprojectConfigResponse;
+  stopConfig: StopConfig;
   onReset: () => void;
 }
 
-export function Download({ truck, stop, drprojectConfig, onReset }: DownloadProps) {
+export function Download({ truck, stop, drprojectConfig, stopConfig, onReset }: DownloadProps) {
+  const [branch, setBranch] = useState("");
+  const [branchError, setBranchError] = useState<string | undefined>();
+  const [csvBusy, setCsvBusy] = useState(false);
+  const [csvError, setCsvError] = useState<string | undefined>();
+
+  const handleCsvDownload = useCallback(async () => {
+    const trimmed = branch.trim();
+    if (!trimmed) {
+      setBranchError("Required");
+      return;
+    }
+    if (!isAsciiText(trimmed)) {
+      setBranchError(ASCII_MESSAGE);
+      return;
+    }
+    setBranchError(undefined);
+    setCsvError(undefined);
+    setCsvBusy(true);
+    try {
+      await downloadFile(
+        "/api/stops-csv/download",
+        { ...stopConfig, branch: trimmed },
+        "stops.csv",
+      );
+    } catch (error) {
+      setCsvError((error as Error).message || "Could not download stops CSV.");
+    } finally {
+      setCsvBusy(false);
+    }
+  }, [branch, stopConfig]);
+
   return (
     <section aria-labelledby="wizard-step-heading">
       <h2 id="wizard-step-heading" tabIndex={-1}>
         Your dataset is ready
       </h2>
       <p className="step-intro">
-        Download all three files below, then place <code>DRProject.config</code> in your
-        DirectRoute user data directory (File → Preferences) and import the truck and stop
-        files to build your solution.
+        Download the files below, then place <code>DRProject.config</code> in your DirectRoute
+        user data directory (File → Preferences) and import the truck and stop files to build your
+        solution. Optionally download a stops CSV with Branch and Action columns for OIS-style
+        import testing.
       </p>
 
       <dl className="summary">
@@ -72,6 +117,45 @@ export function Download({ truck, stop, drprojectConfig, onReset }: DownloadProp
           }
         >
           Download project config ({drprojectConfig.filename})
+        </button>
+      </div>
+
+      <div className="csv-download">
+        <FormRow
+          label="Branch name"
+          htmlFor="stops-csv-branch"
+          error={branchError}
+          hint="Required to download the stops CSV. Applied as the Branch column on every row."
+        >
+          <input
+            id="stops-csv-branch"
+            type="text"
+            value={branch}
+            onChange={(event) => {
+              setBranch(event.target.value);
+              if (branchError) setBranchError(undefined);
+            }}
+            aria-invalid={branchError ? "true" : undefined}
+            aria-describedby={
+              [branchError ? "stops-csv-branch-error" : null, "stops-csv-branch-hint"]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
+            autoComplete="off"
+          />
+        </FormRow>
+        {csvError ? (
+          <p className="field-error" role="alert">
+            {csvError}
+          </p>
+        ) : null}
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => void handleCsvDownload()}
+          disabled={csvBusy}
+        >
+          {csvBusy ? "Preparing CSV…" : "Download stops CSV (stops.csv)"}
         </button>
       </div>
 

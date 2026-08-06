@@ -25,7 +25,9 @@ Completed specs so far:
 | DRProject.config generator + download | SPEC-012 | [#17](https://github.com/routingjesus/Team105/pull/17) |
 | Launcher readiness checks | SPEC-013 | [#19](https://github.com/routingjesus/Team105/pull/19) |
 | Static stop Size 28 with shapes/colors | SPEC-014 | [#21](https://github.com/routingjesus/Team105/pull/21) |
-
+| Matching shape/color per customer line items | SPEC-015 | [#22](https://github.com/routingjesus/Team105/pull/22) |
+| Stops CSV download (Branch/Action) | SPEC-016 | [#24](https://github.com/routingjesus/Team105/pull/24) |
+| Manual location entry with geocoding | SPEC-017 | [#23](https://github.com/routingjesus/Team105/pull/23) |
 Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
 `spec-dashboard` skill) for the full lifecycle view.
 
@@ -133,11 +135,12 @@ uv pip install -r backend/requirements.txt
 Endpoints (same request body per generator, two delivery shapes each):
 
 - `POST /api/trucks/generate` / `POST /api/stops/generate` /
-  `POST /api/drproject-config/generate` — JSON metadata with base64-encoded
-  file content
+  `POST /api/drproject-config/generate` / `POST /api/stops-csv/generate` —
+  JSON metadata with base64-encoded file content
 - `POST /api/trucks/download` / `POST /api/stops/download` /
-  `POST /api/drproject-config/download` — raw file bytes with
-  `Content-Disposition`
+  `POST /api/drproject-config/download` / `POST /api/stops-csv/download` —
+  raw file bytes with `Content-Disposition`
+  (`/api/stops-csv/*` also requires a non-empty `branch` on the request body)
 
 Interactive docs at `http://127.0.0.1:8000/docs`.
 
@@ -149,9 +152,11 @@ at it, set a comma-separated `WIZARD_ALLOWED_ORIGINS` before launching, e.g.
 ## Wizard UI (frontend)
 
 A Next.js (App Router) wizard walks a user through route and stop questions,
-previews the dataset, then generates and downloads all three files via the
-API above. It consumes the backend contract directly — no file formats are
-exposed to the user.
+previews the dataset, then generates and downloads the truck, stop workbook,
+and `DRProject.config` files via the API above. An optional stops CSV (with
+Branch/Action columns) can be generated on the final download step. It
+consumes the backend contract directly — no file formats are exposed during
+the question flow.
 
 ```powershell
 # Node is not preinstalled on bootcamp hosts; install once:
@@ -174,7 +179,8 @@ The wizard calls `POST /api/trucks/generate`, then `POST /api/stops/generate`
 (stop generation consumes the truck response), then
 `POST /api/drproject-config/generate` (same `StopConfig` body), decodes the
 base64 file content from each response, and offers one download button per
-file. Set
+file. On the download step the user may optionally enter a Branch name and
+request `POST /api/stops-csv/download` for an OIS-style stops CSV. Set
 `NEXT_PUBLIC_API_BASE_URL` to the deployed API origin — its value is inlined at
 `npm run build` time, so set it *before* building, not after. When the API is a
 different origin, add that origin to the backend's `WIZARD_ALLOWED_ORIGINS`.
@@ -214,14 +220,18 @@ state directly and does not need the depot to resolve.
 
 ### Import into DirectRoute
 
-The wizard produces three files:
+The wizard produces three primary files:
 
 - `fleet.truck` — tab-delimited truck/fleet file (SPEC-001)
 - `stops.xlsx` — stop file (SPEC-002)
 - `DRProject.config` — DirectRoute project configuration XML (SPEC-012)
 
-Download all three from the final wizard step. Copy `DRProject.config` into
-the DirectRoute user data directory configured under **File → Preferences**
+Optionally download `stops.csv` (SPEC-016) from the same step after entering a
+Branch name — leading Branch/Action columns plus the same stop content as the
+xlsx, for OIS-style import testing.
+
+Download the primary three from the final wizard step. Copy `DRProject.config`
+into the DirectRoute user data directory configured under **File → Preferences**
 (this app cannot write to that path from the browser). Then import the truck
 and stop files into DirectRoute (trucks first, then stops) to build a routing
 solution.

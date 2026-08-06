@@ -296,3 +296,28 @@ class StopGenerationResponse(BaseModel):
     seed: int
     filename: str
     stop_file_base64: str
+
+
+class StopCsvRequest(StopConfig):
+    """Stop generation request plus required Branch for CSV (SPEC-016)."""
+
+    branch: str = Field(min_length=1)
+
+    @field_validator("branch")
+    @classmethod
+    def branch_nonempty_ascii(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("branch must be non-empty")
+        return _validate_ascii(stripped, "branch")
+
+
+class StopCsvGenerationResponse(BaseModel):
+    """Metadata plus base64-encoded stops CSV content (SPEC-016)."""
+
+    candidate_count: int
+    selected_stop_count: int
+    output_row_count: int
+    seed: int
+    filename: str
+    stop_csv_file_base64: str
