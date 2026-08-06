@@ -7,7 +7,7 @@ Cohort 3, Team 105.
 
 ## Status
 
-All twelve specs are complete. Highlights:
+Completed specs so far:
 
 | Area | Spec | PR |
 |------|------|-----|
@@ -23,8 +23,11 @@ All twelve specs are complete. Highlights:
 | ID2/ID3 column alias prompts | SPEC-010 | [#15](https://github.com/routingjesus/Team105/pull/15) |
 | Optional stop shape/color | SPEC-011 | [#14](https://github.com/routingjesus/Team105/pull/14) |
 | DRProject.config generator + download | SPEC-012 | [#17](https://github.com/routingjesus/Team105/pull/17) |
+| Launcher readiness checks | SPEC-013 | [#19](https://github.com/routingjesus/Team105/pull/19) |
+| Static stop Size 28 with shapes/colors | SPEC-014 | [#21](https://github.com/routingjesus/Team105/pull/21) |
+| Matching shape/color per customer line items | SPEC-015 | [#22](https://github.com/routingjesus/Team105/pull/22) |
 | Stops CSV download (Branch/Action) | SPEC-016 | [#24](https://github.com/routingjesus/Team105/pull/24) |
-
+| Manual location entry with geocoding | SPEC-017 | [#23](https://github.com/routingjesus/Team105/pull/23) |
 Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
 `spec-dashboard` skill) for the full lifecycle view.
 
@@ -33,7 +36,7 @@ Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
 The core wizard scope is complete. Sensible follow-ons:
 
 - **Demo to a reviewer:** `.\run-local.cmd -Share` prints a public tunnel URL.
-- **New work:** run `create-spec` to scaffold SPEC-013 or another backlog item.
+- **New work:** run `create-spec` to scaffold the next backlog item.
 - **DirectRoute verification:** run the [smoke test checklist](#directroute-smoke-test) once on a machine with DirectRoute 26.x installed.
 
 ## Team setup (one command)

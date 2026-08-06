@@ -278,6 +278,9 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
         open1, close1, pattern1 = build_time_window(config, rng)
         eq_code = rng.choice(config.eq_code.codes) if stop_index in eq_targets else ""
         volume_cells = _volume_cells(config, rng)
+        # Draw once per stop so consolidation line items share Symbol/Color.
+        symbol = rng.choice(SHAPE_VALUES) if config.generate_shapes else None
+        color = rng.choice(COLOR_VALUES) if config.generate_colors else None
 
         for line in range(1, lines_per_customer + 1):
             id2 = f"ORD-{stop_index + 1:04d}-{line:02d}"
@@ -302,10 +305,12 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
                 "Pattern1": pattern1,
                 "Frequency": f"{frequency:g}",
             }
-            if config.generate_shapes:
-                row_by_col["Symbol"] = rng.choice(SHAPE_VALUES)
-            if config.generate_colors:
-                row_by_col["Color"] = rng.choice(COLOR_VALUES)
+            if symbol is not None:
+                row_by_col["Symbol"] = symbol
+            if color is not None:
+                row_by_col["Color"] = color
+            if config.generate_shapes or config.generate_colors:
+                row_by_col["Size"] = "28"
             row = []
             for col in COLUMN_ORDER:
                 if col == VOLUMES_MARKER:
