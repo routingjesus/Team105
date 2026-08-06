@@ -3,11 +3,11 @@ status: done
 created: 2026-08-05
 updated: 2026-08-05
 
-# Origin (optional — informational, not a dependency)
+# Origin (optional - informational, not a dependency)
 # source: "https://..."                 # Shareable origin breadcrumb, never a local filesystem path like /home/... or /Users/...
 # tracking_id: ""                       # External reference (Notion task, Jira ticket, etc.)
 
-# Dependencies (optional — advisory ordering, not execution blockers)
+# Dependencies (optional - advisory ordering, not execution blockers)
 # depends_on:
 #   - "SPEC-030"                        # Lightweight sequencing; upstream should usually be done first
 # blocked_by:
@@ -19,7 +19,7 @@ coordination:
   blast_radius: isolated   # Additive sibling CSV artifact + download UX; mirrors SPEC-012 without changing truck/xlsx/DRProject contracts
   parallel_safe: true      # true only when blast_radius is isolated; do not set independently
 
-# Branching (optional — non-default branch topology for stacked or integration workflows)
+# Branching (optional - non-default branch topology for stacked or integration workflows)
 # branching:
 #   base_branch: ""                    # Branch to fork from; defaults to repo default branch when absent
 #   target_branch: ""                  # PR base branch; defaults to repo default branch when absent
@@ -41,17 +41,35 @@ coordination:
 
 learnings:
   - type: pattern_discovered
-    summary: "Dedicated Random(seed) after build_rows keeps Delete indices stable when row-builder RNG consumption changes; matching eq_code math with min(N, max(1, round(0.1*N)))."
-    context: "SPEC-016 CSV Action column selection"
-    tags: [rng, csv, stop-generator]
+    summary: "For subset flags on stop rows (Delete, EQ codes), compute k with min(N, max(1, round(fraction*N))) then sample on a dedicated random.Random(config.seed) after build_rows finishes - not the build_rows RNG stream."
+    context: >
+      SPEC-016 Action Delete selection in backend/generators/stop.py
+      (delete_action_count + generate_stop_csv_file). Keeps Delete indices
+      stable if build_rows RNG consumption changes; same math as eq_code
+      subset selection with fraction 0.1. Assert exact indices via an
+      independent Random(seed).sample in tests.
+    tags: [rng, stop-generator, testing]
     date: 2026-08-05
   - type: gotcha
-    summary: "csv.writer(StringIO(newline=''), dialect=csv.excel) preserves CRLF; utf-8-sig encode for Excel BOM. Plumb stopConfig into Download � do not persist Branch in wizard form."
-    context: "SPEC-016 CSV dialect and download-time Branch"
-    tags: [csv, frontend, api-contracts]
+    summary: "Emit Excel-friendly CSV with csv.writer(StringIO(newline=''), dialect=csv.excel) then encode utf-8-sig for BOM; never hand-build CSV strings."
+    context: >
+      SPEC-016 generate_stop_csv_file. csv.excel gives comma, QUOTE_MINIMAL,
+      and CRLF; newline='' on StringIO preserves those line endings.
+    tags: [csv, excel, stop-generator]
+    date: 2026-08-05
+  - type: pattern_discovered
+    summary: "On-demand download artifacts that need extra download-time fields (e.g. Branch) must keep StopConfig on the download step and collect those fields only then - do not put them in wizard form persistence."
+    context: >
+      SPEC-016 plumbed stopConfig into components/wizard/download.tsx and
+      used local Branch state with FormRow; hooks/use-wizard-persistence.ts
+      and lib/build-config.ts stayed untouched. Pair with
+      /api/stops-csv/{generate,download} accepting StopCsvRequest
+      (StopConfig + branch).
+    tags: [frontend, api-contracts, wizard]
     date: 2026-08-05
 ready_sha: "01e09120da92628516ca954c6269db12eb0ea020"
 
 completion:
   date: 2026-08-05
-  pull_requests: []
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/24"
