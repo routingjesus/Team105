@@ -70,8 +70,8 @@ def resolve_depot_coordinates(
 ) -> tuple[float, float]:
     """Match a depot's address against location_db; fall back to City/State/Zip.
 
-    When the depot carries inline latitude/longitude (SPEC-017 manual or
-    geocoded entry before persist), those values are used directly.
+    When the depot carries inline latitude/longitude (session paste from
+    the wizard), those values are used directly.
 
     Returns (latitude, longitude). Raises DepotCoordinateError if neither an
     exact address match nor a City/State/Zip match exists.
