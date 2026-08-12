@@ -56,7 +56,7 @@ learnings:
   - type: pattern_discovered
     summary: "After locationFieldsSchema.superRefine, depotSchema must use Zod 4 .safeExtend(); .extend() throws on a refined object."
     context: "lib/wizard-schema.ts locationFieldsSchema now carries the either-or superRefine shared by depotSchema and manualStopSchema."
-    tags: [zod4, safeExtend, wizard-schema]
+    tags: [zod-4, safe-extend, wizard-schema]
     date: 2026-08-12
   - type: pattern_discovered
     summary: "Pydantic ValidationError.from_exception_data with PydanticCustomError('required', 'Required') yields HTTP 422 loc paths FastAPI wraps as body.depots.0.address, which apiLocToFormPath can map."
@@ -72,4 +72,5 @@ learnings:
 
 completion:
   date: 2026-08-12
-  pull_requests: []
+  pull_requests:
+    - "https://github.com/routingjesus/Team105/pull/32"
