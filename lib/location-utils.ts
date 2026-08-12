@@ -2,7 +2,7 @@
 
 export interface LocationFields {
   address: string;
-  address2: string;
+  address2?: string;
   city: string;
   state: string;
   zip: string;
@@ -10,7 +10,8 @@ export interface LocationFields {
   longitude?: number;
 }
 
-export const emptyLocationFields = (): LocationFields => ({
+/** Empty location with address2 set so RHF field-array append matches form values. */
+export const emptyLocationFields = (): LocationFields & { address2: string } => ({
   address: "",
   address2: "",
   city: "",
