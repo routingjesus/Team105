@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "package:portable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-portable.ps1"
   },
   "dependencies": {
     "@hookform/resolvers": "5.7.1",
