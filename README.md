@@ -88,9 +88,10 @@ exposed, and never demo with real PII or production credentials.
 
 ### Known-good demo depot
 
-Depot addresses must resolve against the bundled location database, so for a
-demo use **1216 Greenbrier Parkway, Chesapeake, VA 23320** (~191 candidate
-stops within the default 50-mile radius). See the depot note under
+For a quick demo, enter **1216 Greenbrier Parkway, Chesapeake, VA 23320** and
+pick stops by **state** (e.g. `VA`) or **zip** — coordinates are optional.
+Paste Google Maps lat/long when you want **radius** selection (~191 candidates
+within 50 miles for that address). See the depot note under
 [Run the full stack manually](#run-the-full-stack-manually-fallback).
 
 ### Manual fallbacks (locked-down machines)
@@ -205,18 +206,23 @@ To instead hit the API directly (no proxy), set
 `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080` in `.env` *before* building —
 the backend already allows the `localhost:3000` origin via CORS.
 
-**Depot addresses must exist in the static location database.** Stop generation
-resolves each depot to coordinates by matching its address against
-`backend/data/location_db.xlsx` — first by exact street address, then by
-city + state + zip. A made-up address fails with
-`No location_db match for depot ...`. For a known-good demo depot use:
+**Depot coordinates are optional.** Paste a Google Maps `lat, long` pair when
+you have one; leave coords blank for address-only runs. The wizard defaults
+stop selection to **state** (and offers **zip**); **radius** appears only when
+at least one depot has valid coordinates. There is no geocode lookup or
+runtime Save to `location_db.xlsx` — session manual stops go straight into
+this run's stop file.
+
+Radius mode still needs resolvable depot coordinates (pasted, or a match in
+`backend/data/location_db.xlsx` by street then city+state+zip). For a
+known-good radius demo use:
 
 > **1216 Greenbrier Parkway, Chesapeake, VA 23320** (≈191 candidate stops
-> within the default 50-mile radius)
+> within 50 miles when coords resolve)
 
-Any real city/state/zip present in the database also works (matching is
-whitespace- and case-insensitive). State-selection mode filters candidates by
-state directly and does not need the depot to resolve.
+State and zip modes filter `location_db` candidates directly and do not need
+depot coordinates. Any real city/state/zip present in the database works for
+matching (whitespace- and case-insensitive).
 
 ### Import into DirectRoute
 
