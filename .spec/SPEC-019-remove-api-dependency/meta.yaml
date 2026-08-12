@@ -40,17 +40,17 @@ ready_sha: "79b57d81a3e1ea213a498d8cb5abb33f43dc02a1"
 learnings:
   - type: pattern_discovered
     summary: "Session manual stops must be appended after thin_to_target as a protected cohort; including them in the thinned DataFrame before density sampling lets stop_count remove them."
-    context: "select_candidates now thins DB candidates only, then concat(_manual_stops_frame)."
+    context: "backend/generators/stop.py select_candidates thins DB candidates only, then concat(_manual_stops_frame) so session stops never enter thin_to_target and do not consume the DB stop_count budget."
     tags: [stop-selection, manual-stops, thinning]
     date: 2026-08-12
   - type: assumption_confirmed
     summary: "Defaulting selectionMode to state (and hiding radius until a depot has coords) is required for address-only demos; keeping default radius breaks Continue validation when no coords are pasted."
-    context: "Wizard integration tests needed States filled after the default flip."
+    context: "lib/wizard-schema.ts defaults and components/wizard/stop-questions.tsx gate radius via hasValidCoordinates; wizard integration tests needed States filled after the default flip."
     tags: [wizard-ui, radius-gating]
     date: 2026-08-12
   - type: constraint_discovered
     summary: "pandas concat of DB float coords with all-NA session lat/long warns unless Latitude/Longitude are coerced to float64 before concat."
-    context: "FutureWarning on empty/all-NA concat during blank-coord manual stop tests."
+    context: "In select_candidates, coerce thinned Latitude/Longitude to float64 and pd.to_numeric on the manual frame before pd.concat — avoids FutureWarning on blank-coord session stops."
     tags: [pandas, coordinates]
     date: 2026-08-12
 
