@@ -166,3 +166,18 @@ entries:
     tags: [directroute, stop-file, testing, consolidation, false-green]
     date: 2026-08-05
     source_spec: SPEC-015
+
+  - type: pattern_discovered
+    summary: "Session-injected stops are a protected cohort: append after thin_to_target, never before"
+    context: >
+      Wizard session manual stops (StopConfig.manual_stops) must appear in
+      the stop file even when density thinning aggressively cuts the DB
+      candidate pool. backend/generators/stop.py select_candidates filters
+      and runs thin_to_target on only the DB frame, then concat(_manual_stops_frame)
+      so session stops neither enter density sampling nor consume the DB
+      stop_count budget. Including them in the pre-thin DataFrame lets
+      stop_count remove them. Apply the same append-after-thin pattern for
+      any future session-only or operator-forced rows.
+    tags: [directroute, stop-file, stop-selection, manual-stops, thinning]
+    date: 2026-08-12
+    source_spec: SPEC-019
