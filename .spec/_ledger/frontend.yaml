@@ -17,6 +17,18 @@ entries:
     tags: [frontend, eslint, next, tooling]
     date: 2026-08-04
     source_spec: SPEC-003
+  - type: pattern_discovered
+    summary: "After a Zod 4 object has .refine() or .superRefine(), add fields with .safeExtend() — .extend() throws"
+    context: >
+      Zod 4.4.3 throws if you .extend() an object that already has a
+      refinement. SPEC-020 put the coords-or-address superRefine on
+      locationFieldsSchema in lib/wizard-schema.ts, then switched
+      depotSchema from .extend({ trucks }) to .safeExtend({ trucks }).
+      Keep shared location rules on locationFieldsSchema (so depot and
+      manual-stop inherit them) and use .safeExtend() for extra keys.
+    tags: [frontend, zod-4, safe-extend, wizard-schema]
+    date: 2026-08-12
+    source_spec: SPEC-020
   - type: decision_made
     summary: "Force Next.js same-origin proxy mode with an empty .env.local value; an empty env var can't be injected through the Windows process environment"
     context: >
