@@ -41,6 +41,13 @@ export function hasValidCoordinates(loc: LocationFields): boolean {
   return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 }
 
+/** True when street, city, state, and ZIP are all non-empty after trim. */
+export function hasCompleteAddress(
+  loc: Pick<LocationFields, "address" | "city" | "state" | "zip">,
+): boolean {
+  return [loc.address, loc.city, loc.state, loc.zip].every((part) => part.trim().length > 0);
+}
+
 export function formatCoords(latitude: number, longitude: number): string {
   return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
 }

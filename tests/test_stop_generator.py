@@ -705,3 +705,66 @@ class TestSessionManualStopsAndZip:
         header = build_header(base_config)
         assert rows[0][header.index("Address")] == "Only Manual"
         assert rows[0][header.index("Latitude")] == "30.267200"
+
+
+PASTE_LAT = 38.38080520110032
+PASTE_LON = -97.4279212147894
+
+
+def _required_field_locs(exc: ValidationError) -> set[tuple]:
+    return {tuple(err["loc"]) for err in exc.errors() if err["msg"] == "Required"}
+
+
+class TestManualStopCoordsOrAddress:
+    def test_coords_only_manual_stop_is_valid(self):
+        stop = ManualStop(latitude=PASTE_LAT, longitude=PASTE_LON)
+        assert stop.address == ""
+        assert stop.city == ""
+        assert stop.state == ""
+        assert stop.zip == ""
+
+    def test_address_only_manual_stop_is_valid(self):
+        ManualStop(address="Session Only Rd", city="Denver", state="CO", zip="80202")
+
+    def test_both_address_and_coords_are_valid(self):
+        ManualStop(
+            address="Session Only Rd",
+            city="Denver",
+            state="CO",
+            zip="80202",
+            latitude=PASTE_LAT,
+            longitude=PASTE_LON,
+        )
+
+    def test_neither_requires_each_blank_address_field(self):
+        with pytest.raises(ValidationError) as exc:
+            ManualStop()
+        assert _required_field_locs(exc.value) == {("address",), ("city",), ("state",), ("zip",)}
+
+    def test_partial_address_without_coords_requires_blanks(self):
+        with pytest.raises(ValidationError) as exc:
+            ManualStop(address="Session Only Rd", city="", state="CO", zip="")
+        assert _required_field_locs(exc.value) == {("city",), ("zip",)}
+
+    def test_null_island_does_not_count_as_coordinates(self):
+        with pytest.raises(ValidationError) as exc:
+            ManualStop(latitude=0, longitude=0)
+        assert _required_field_locs(exc.value) == {("address",), ("city",), ("state",), ("zip",)}
+
+    def test_coords_only_manual_stop_emits_empty_address_and_fallback_name(self, base_config, location_db):
+        base_config.selection = SelectionConfig(mode="state", states=["ZZ"])
+        base_config.stop_count = 1
+        base_config.manual_stops = [ManualStop(latitude=PASTE_LAT, longitude=PASTE_LON)]
+        candidates = select_candidates(base_config, location_db)[0]
+        rows = build_rows(base_config, candidates)
+        assert len(rows) == 1
+        header = build_header(base_config)
+        cell = dict(zip(header, rows[0]))
+        assert cell["Address"] == ""
+        assert cell["City"] == ""
+        assert cell["State"] == ""
+        assert cell["Zip"] == ""
+        assert cell["Name"] == "Manual stop 1"
+        assert cell["Store #"] == "Manual stop 1"
+        assert cell["Latitude"] == "38.380805"
+        assert cell["Longitude"] == "-97.427921"

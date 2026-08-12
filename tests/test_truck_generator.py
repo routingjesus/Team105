@@ -272,3 +272,100 @@ class TestValidation:
             macro_default_config(
                 depots=[{"address": "A", "city": "B", "state": "TX", "zip": "1", "trucks": 0}]
             )
+
+
+PASTE_LAT = 38.38080520110032
+PASTE_LON = -97.4279212147894
+
+
+def _required_field_locs(exc: ValidationError) -> set[tuple]:
+    return {tuple(err["loc"]) for err in exc.errors() if err["msg"] == "Required"}
+
+
+class TestCoordsOrAddressCompleteness:
+    def test_coords_only_depot_is_valid(self):
+        depot = DepotSpec(trucks=1, latitude=PASTE_LAT, longitude=PASTE_LON)
+        assert depot.address == ""
+        assert depot.city == ""
+        assert depot.state == ""
+        assert depot.zip == ""
+
+    def test_address_only_depot_is_valid(self):
+        DepotSpec(address="1 Depot Way", city="Columbus", state="OH", zip="43215", trucks=1)
+
+    def test_both_address_and_coords_are_valid(self):
+        DepotSpec(
+            address="1 Depot Way",
+            city="Columbus",
+            state="OH",
+            zip="43215",
+            trucks=1,
+            latitude=PASTE_LAT,
+            longitude=PASTE_LON,
+        )
+
+    def test_neither_requires_each_blank_address_field(self):
+        with pytest.raises(ValidationError) as exc:
+            DepotSpec(trucks=1)
+        assert _required_field_locs(exc.value) == {("address",), ("city",), ("state",), ("zip",)}
+
+    def test_partial_address_without_coords_requires_blanks(self):
+        with pytest.raises(ValidationError) as exc:
+            DepotSpec(address="1 Depot Way", city="", state="OH", zip="", trucks=1)
+        assert _required_field_locs(exc.value) == {("city",), ("zip",)}
+
+    def test_whitespace_address_is_not_complete(self):
+        with pytest.raises(ValidationError) as exc:
+            DepotSpec(address="  ", city="Columbus", state="OH", zip="43215", trucks=1)
+        assert ("address",) in _required_field_locs(exc.value)
+
+    def test_null_island_does_not_count_as_coordinates(self):
+        with pytest.raises(ValidationError) as exc:
+            DepotSpec(trucks=1, latitude=0, longitude=0)
+        assert _required_field_locs(exc.value) == {("address",), ("city",), ("state",), ("zip",)}
+
+    def test_coords_only_depot_emits_empty_address_cells(self):
+        config = TruckConfig(
+            weeks=1,
+            depots=[DepotSpec(trucks=1, latitude=PASTE_LAT, longitude=PASTE_LON)],
+        )
+        header = build_header(config)
+        cell = dict(zip(header, build_rows(config)[0]))
+        assert cell["Address"] == ""
+        assert cell["City"] == ""
+        assert cell["State"] == ""
+        assert cell["Zip"] == ""
+        assert cell["Latitude"] == "38.380805"
+        assert cell["Longitude"] == "-97.427921"
+
+    def test_address_only_depot_emits_blank_coords(self):
+        config = macro_default_config(weeks=1)
+        header = build_header(config)
+        cell = dict(zip(header, build_rows(config)[0]))
+        assert cell["Address"] == "100 Depot Way"
+        assert cell["Latitude"] == ""
+        assert cell["Longitude"] == ""
+
+    def test_both_address_and_coords_are_emitted(self):
+        config = TruckConfig(
+            weeks=1,
+            depots=[
+                DepotSpec(
+                    address="1 Depot Way",
+                    city="Columbus",
+                    state="OH",
+                    zip="43215",
+                    trucks=1,
+                    latitude=PASTE_LAT,
+                    longitude=PASTE_LON,
+                )
+            ],
+        )
+        header = build_header(config)
+        cell = dict(zip(header, build_rows(config)[0]))
+        assert cell["Address"] == "1 Depot Way"
+        assert cell["City"] == "Columbus"
+        assert cell["State"] == "OH"
+        assert cell["Zip"] == "43215"
+        assert cell["Latitude"] == "38.380805"
+        assert cell["Longitude"] == "-97.427921"

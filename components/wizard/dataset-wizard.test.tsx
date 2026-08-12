@@ -57,6 +57,14 @@ async function fillDepot(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("ZIP"), "84101");
 }
 
+async function pasteGoogleCoords(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(
+    screen.getByLabelText("Coordinates (optional)"),
+    "38.38080520110032, -97.4279212147894",
+  );
+  await user.click(screen.getByRole("button", { name: "Use coordinates" }));
+}
+
 async function fillStopSelection(user: ReturnType<typeof userEvent.setup>) {
   // Default selection is state mode when no depot coords are pasted.
   await user.type(screen.getByLabelText("States"), "UT");
@@ -76,6 +84,54 @@ describe("DatasetWizard", () => {
 
     expect(await screen.findAllByText("Required")).not.toHaveLength(0);
     expect(screen.getByRole("heading", { name: "Route details" })).toBeInTheDocument();
+  });
+
+  it("accepts a coords-only depot and marks address fields optional", async () => {
+    const user = userEvent.setup();
+    render(<DatasetWizard />);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findAllByText("Required")).not.toHaveLength(0);
+
+    await pasteGoogleCoords(user);
+
+    expect(screen.queryByText("Required")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Street address (optional)")).toBeInTheDocument();
+    expect(screen.getByLabelText("City (optional)")).toBeInTheDocument();
+    expect(screen.getByLabelText("State (optional)")).toBeInTheDocument();
+    expect(screen.getByLabelText("ZIP (optional)")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("heading", { name: "Stop details" })).toBeInTheDocument();
+  });
+
+  it("restores required address labels after clearing coordinates", async () => {
+    const user = userEvent.setup();
+    render(<DatasetWizard />);
+    await pasteGoogleCoords(user);
+    expect(screen.getByLabelText("Street address (optional)")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear coordinates" }));
+    expect(screen.getByLabelText("Street address")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Street address (optional)")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findAllByText("Required")).not.toHaveLength(0);
+    expect(screen.getByRole("heading", { name: "Route details" })).toBeInTheDocument();
+  });
+
+  it("accepts a coords-only manual stop", async () => {
+    const user = userEvent.setup();
+    render(<DatasetWizard />);
+    await fillDepot(user);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Stop details" });
+    await fillStopSelection(user);
+
+    await user.click(screen.getByRole("button", { name: "+ Add manual stop" }));
+    await pasteGoogleCoords(user);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByRole("heading", { name: "Check your answers" })).toBeInTheDocument();
   });
 
   it("advances into stop questions without announcing a phase change (AC2)", async () => {

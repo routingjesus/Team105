@@ -29,6 +29,7 @@ Completed specs so far:
 | Stops CSV download (Branch/Action) | SPEC-016 | [#24](https://github.com/routingjesus/Team105/pull/24) |
 | Manual location entry with geocoding | SPEC-017 | [#23](https://github.com/routingjesus/Team105/pull/23) |
 | Remove API geocode/persist dependency | SPEC-019 | [#27](https://github.com/routingjesus/Team105/pull/27) |
+| Optional address when coordinates pasted | SPEC-020 | [#32](https://github.com/routingjesus/Team105/pull/32) |
 | Portable Windows wizard zip | SPEC-018 | [#30](https://github.com/routingjesus/Team105/pull/30) |
 Specs live under `.spec/`; see `spec-dashboard.html` (generate via the
 `spec-dashboard` skill) for the full lifecycle view.
@@ -233,7 +234,9 @@ To instead hit the API directly (no proxy), set
 the backend already allows the `localhost:3000` origin via CORS.
 
 **Depot coordinates are optional.** Paste a Google Maps `lat, long` pair when
-you have one; leave coords blank for address-only runs. The wizard defaults
+you have one; leave coords blank for address-only runs. When valid coordinates
+are present, street / city / state / ZIP may be left blank (empty cells in the
+generated files). The wizard defaults
 stop selection to **state** (and offers **zip**); **radius** appears only when
 at least one depot has valid coordinates. There is no geocode lookup or
 runtime Save to `location_db.xlsx` — session manual stops go straight into

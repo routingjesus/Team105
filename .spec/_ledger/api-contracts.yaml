@@ -46,3 +46,20 @@ entries:
     tags: [api-contract, fastapi, file-delivery, drproject-config, wizard]
     date: 2026-08-05
     source_spec: SPEC-012
+
+  - type: pattern_discovered
+    summary: "Cross-field Pydantic rules must raise ValidationError.from_exception_data with per-field locs so FastAPI 422 maps onto wizard fields"
+    context: >
+      A plain raise ValueError in model_validator(mode="after") yields HTTP
+      422 with a model-scoped loc (e.g. ["body", "depots", 0]) that
+      lib/api.ts apiLocToFormPath cannot map onto depots.0.address.
+      SPEC-020's require_coords_or_address in backend/schemas/truck_config.py
+      (shared by DepotSpec and ManualStop) uses
+      ValidationError.from_exception_data with
+      PydanticCustomError("required", "Required") and loc=('address',)
+      (and city/state/zip) per blank field. FastAPI wraps those as
+      ["body", "depots", 0, "address"]. Use this pattern whenever a
+      cross-field rule must surface as field-level "Required" in the wizard.
+    tags: [api-contract, pydantic, fastapi-422, wizard]
+    date: 2026-08-12
+    source_spec: SPEC-020

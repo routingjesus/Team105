@@ -99,3 +99,41 @@ class TestRequestValidation:
             {"name": "Cube", "capacity": 200},
         ]
         assert client.post("/api/trucks/generate", json=request_body).status_code == 422
+
+    def test_coords_only_depot_returns_200(self):
+        response = client.post(
+            "/api/trucks/generate",
+            json={
+                "weeks": 1,
+                "depots": [
+                    {
+                        "address": "",
+                        "city": "",
+                        "state": "",
+                        "zip": "",
+                        "trucks": 1,
+                        "latitude": 38.38080520110032,
+                        "longitude": -97.4279212147894,
+                    }
+                ],
+            },
+        )
+        assert response.status_code == 200
+
+    def test_neither_coords_nor_address_returns_422_on_address_fields(self):
+        response = client.post(
+            "/api/trucks/generate",
+            json={"weeks": 1, "depots": [{"trucks": 1}]},
+        )
+        assert response.status_code == 422
+        locs = [tuple(item["loc"]) for item in response.json()["detail"]]
+        assert ("body", "depots", 0, "address") in locs
+        assert ("body", "depots", 0, "city") in locs
+        assert ("body", "depots", 0, "state") in locs
+        assert ("body", "depots", 0, "zip") in locs
+        messages = {
+            tuple(item["loc"]): item["msg"]
+            for item in response.json()["detail"]
+            if tuple(item["loc"])[-1] in {"address", "city", "state", "zip"}
+        }
+        assert all(msg == "Required" for msg in messages.values())
