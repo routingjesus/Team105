@@ -60,13 +60,12 @@ entries:
       rendered blank cells with no error. The fix is always the same three
       edits: add the field to the row dataclass, read it off the candidate
       row, add the key to row_by_col using the exact COLUMN_ORDER name.
-      backend/generators/truck.py (SPEC-001) has the identical unfixed gap
-      for its own Longitude/Latitude columns â€” apply the same three-edit
-      pattern there if that generator is ever extended to carry coordinates.
-      Regression-proof this class of bug with a direct source-to-output
-      equality assertion per field, not just a non-blank check â€” "column
-      present in the header" and "value actually populated" are different
-      claims.
+      SPEC-019 applied the same pattern to backend/generators/truck.py for
+      optional session depot coordinates (emit pasted floats; leave cells
+      empty when omitted — never force 0.0). Regression-proof this class of
+      bug with a direct source-to-output equality assertion per field, not
+      just a non-blank check â€” "column present in the header" and "value
+      actually populated" are different claims.
     tags: [directroute, stop-file, truck-file, row-assembly, passthrough-bug]
     date: 2026-08-04
     source_spec: SPEC-005
