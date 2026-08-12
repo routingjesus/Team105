@@ -27,8 +27,10 @@ from backend.schemas.stop_config import (
 )
 from backend.schemas.truck_config import _validate_ascii
 from backend.services.spatial import (
+    DepotCoordinateError,
     filter_by_radius,
     filter_by_state,
+    filter_by_zip,
     resolve_depot_coordinates,
     thin_to_target,
 )
@@ -194,8 +196,8 @@ class SelectedStop:
     city: str
     state: str
     zip: str
-    latitude: float
-    longitude: float
+    latitude: float | None
+    longitude: float | None
 
 
 def _clean(value) -> str:
@@ -203,6 +205,12 @@ def _clean(value) -> str:
         return ""
     text = str(value).strip()
     return _validate_ascii(text, "location_db field") if text else text
+
+
+def _optional_coord(value) -> float | None:
+    if value is None or (isinstance(value, float) and pd.isna(value)) or pd.isna(value):
+        return None
+    return float(value)
 
 
 def selected_stops_from_candidates(candidates: pd.DataFrame) -> list[SelectedStop]:
@@ -221,8 +229,8 @@ def selected_stops_from_candidates(candidates: pd.DataFrame) -> list[SelectedSto
                 city=_clean(row["City"]),
                 state=_clean(row["State"]),
                 zip=_clean(row["Zip"]),
-                latitude=float(row["Latitude"]),
-                longitude=float(row["Longitude"]),
+                latitude=_optional_coord(row["Latitude"]),
+                longitude=_optional_coord(row["Longitude"]),
             )
         )
     return stops
@@ -296,8 +304,8 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
                 "City": stop.city,
                 "State": stop.state,
                 "Zip": stop.zip,
-                "Longitude": f"{stop.longitude:.6f}",
-                "Latitude": f"{stop.latitude:.6f}",
+                "Longitude": "" if stop.longitude is None else f"{stop.longitude:.6f}",
+                "Latitude": "" if stop.latitude is None else f"{stop.latitude:.6f}",
                 "FixedTime": f"{config.fixed_time_minutes:g}",
                 "EqCode": eq_code,
                 "Open1": str(open1).zfill(4),
@@ -321,20 +329,86 @@ def build_rows(config: StopConfig, candidates: pd.DataFrame, rng: random.Random 
     return rows
 
 
-def select_candidates(config: StopConfig, location_db: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Filter (radius or state) then density-thin to the requested stop count.
+_MANUAL_STOP_COLUMNS = (
+    "Name",
+    "Contact",
+    "Phone",
+    "ID1",
+    "ID3",
+    "Address",
+    "Address2",
+    "City",
+    "State",
+    "Zip",
+    "Latitude",
+    "Longitude",
+)
 
-    Returns (thinned_candidates, pre_thin_candidate_count) so callers can
+
+def _manual_stops_frame(config: StopConfig) -> pd.DataFrame:
+    """Session manual stops as location_db-shaped rows (appended after thinning)."""
+    rows = []
+    for index, stop in enumerate(config.manual_stops or []):
+        name = stop.address.strip() or f"Manual stop {index + 1}"
+        rows.append(
+            {
+                "Name": name,
+                "Contact": "",
+                "Phone": "",
+                "ID1": name,
+                "ID3": "",
+                "Address": stop.address,
+                "Address2": stop.address2 or "",
+                "City": stop.city,
+                "State": stop.state,
+                "Zip": stop.zip,
+                "Latitude": stop.latitude if stop.latitude is not None else pd.NA,
+                "Longitude": stop.longitude if stop.longitude is not None else pd.NA,
+            }
+        )
+    if not rows:
+        return pd.DataFrame(columns=list(_MANUAL_STOP_COLUMNS))
+    return pd.DataFrame(rows)
+
+
+def select_candidates(config: StopConfig, location_db: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Filter (radius/state/zip), density-thin DB candidates, then append session stops.
+
+    Session manual stops are always appended after thinning so they are not
+    removed by density sampling and do not consume the DB `stop_count` budget.
+
+    Returns (selected_candidates, pre_thin_candidate_count) so callers can
     report both the raw candidate pool size and the post-thinning selection.
     """
     selection = config.selection
     if selection.mode == "radius":
-        dc_coordinates = [resolve_depot_coordinates(depot, location_db) for depot in config.depots]
+        dc_coordinates: list[tuple[float, float]] = []
+        for depot in config.depots:
+            try:
+                dc_coordinates.append(resolve_depot_coordinates(depot, location_db))
+            except DepotCoordinateError:
+                continue
+        if not dc_coordinates:
+            raise DepotCoordinateError(
+                "No depot has resolvable coordinates for radius selection"
+            )
         filtered = filter_by_radius(location_db, dc_coordinates, selection.radius_miles)
+    elif selection.mode == "zip":
+        filtered = filter_by_zip(location_db, selection.zips or [])
     else:
-        filtered = filter_by_state(location_db, selection.states)
+        filtered = filter_by_state(location_db, selection.states or [])
     thinned = thin_to_target(filtered, config.stop_count, config.seed)
-    return thinned, len(filtered)
+    manual = _manual_stops_frame(config)
+    if manual.empty:
+        return thinned, len(filtered)
+    # Align dtypes so all-NA lat/long on session stops do not warn on concat.
+    for column in ("Latitude", "Longitude"):
+        if column in thinned.columns:
+            thinned[column] = thinned[column].astype("float64")
+        if column in manual.columns:
+            manual[column] = pd.to_numeric(manual[column], errors="coerce")
+    combined = pd.concat([thinned, manual], ignore_index=True)
+    return combined, len(filtered)
 
 
 def generate_stop_file(config: StopConfig, candidates: pd.DataFrame) -> bytes:

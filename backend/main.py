@@ -27,13 +27,6 @@ from backend.generators.stop import (
 )
 from backend.generators.truck import generate_truck_file
 from backend.schemas.drproject_config import DrprojectConfigResponse
-from backend.schemas.location import (
-    GeocodeRequest,
-    GeocodeResponse,
-    LocationAppendResponse,
-    LocationDuplicateResponse,
-    LocationEntry,
-)
 from backend.schemas.stop_config import (
     StopConfig,
     StopCsvGenerationResponse,
@@ -46,16 +39,12 @@ from backend.schemas.truck_config import (
     TruckGenerationResponse,
     VolumeSpec,
 )
-from backend.services.geocoding import (
-    GEOCODE_NOT_FOUND_MESSAGE,
-    GeocodeNotFoundError,
-    GeocodeServiceUnavailableError,
-    geocode_address,
-)
-from backend.services.location_store import LocationDuplicateError, append_location_row
 from backend.services.spatial import DepotCoordinateError, load_location_db
 
-DEPOT_GEOCODE_ERROR_MESSAGE = "Depot could not be geocoded"
+RADIUS_NO_COORDS_ERROR_MESSAGE = (
+    "No depot has coordinates available for radius selection. "
+    "Paste coordinates for at least one depot, or choose state or zip selection."
+)
 
 TRUCK_FILENAME = "fleet.truck"
 STOP_FILENAME = "stops.xlsx"
@@ -102,6 +91,8 @@ def generate_trucks(config: TruckConfig) -> TruckGenerationResponse:
                 state=d.state,
                 zip=d.zip,
                 truck_count=d.trucks,
+                latitude=d.latitude,
+                longitude=d.longitude,
             )
             for d in config.depots
         ],
@@ -141,7 +132,7 @@ def _generate_stop_content(config: StopConfig) -> tuple[bytes, int, int, int]:
     try:
         candidates, candidate_count = select_candidates(config, location_db)
     except DepotCoordinateError as exc:
-        raise HTTPException(status_code=422, detail=DEPOT_GEOCODE_ERROR_MESSAGE) from exc
+        raise HTTPException(status_code=422, detail=RADIUS_NO_COORDS_ERROR_MESSAGE) from exc
     try:
         content = generate_stop_file(config, candidates)
     except FrequencyConsistencyError as exc:
@@ -205,7 +196,7 @@ def _generate_stop_csv_content(request: StopCsvRequest) -> tuple[bytes, int, int
     try:
         candidates, candidate_count = select_candidates(request, location_db)
     except DepotCoordinateError as exc:
-        raise HTTPException(status_code=422, detail=DEPOT_GEOCODE_ERROR_MESSAGE) from exc
+        raise HTTPException(status_code=422, detail=RADIUS_NO_COORDS_ERROR_MESSAGE) from exc
     try:
         content = generate_stop_csv_file(request, candidates, request.branch)
     except FrequencyConsistencyError as exc:
@@ -243,36 +234,3 @@ def download_stops_csv(request: StopCsvRequest) -> Response:
     )
 
 
-@app.post("/api/locations/geocode", response_model=GeocodeResponse)
-def geocode_location(request: GeocodeRequest) -> GeocodeResponse:
-    try:
-        result = geocode_address(request)
-    except GeocodeNotFoundError as exc:
-        raise HTTPException(status_code=422, detail=GEOCODE_NOT_FOUND_MESSAGE) from exc
-    except GeocodeServiceUnavailableError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return GeocodeResponse(**result)
-
-
-@app.post(
-    "/api/locations",
-    response_model=LocationAppendResponse,
-    status_code=201,
-    responses={409: {"model": LocationDuplicateResponse}},
-)
-def append_location(entry: LocationEntry) -> LocationAppendResponse:
-    try:
-        result = append_location_row(LOCATION_DB_PATH, entry)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except LocationDuplicateError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail=LocationDuplicateResponse(
-                existing_name=exc.existing_name,
-                existing_id1=exc.existing_id1,
-                latitude=exc.latitude,
-                longitude=exc.longitude,
-            ).model_dump(),
-        ) from exc
-    return LocationAppendResponse(**result)

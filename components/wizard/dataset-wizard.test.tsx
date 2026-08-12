@@ -57,6 +57,11 @@ async function fillDepot(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("ZIP"), "84101");
 }
 
+async function fillStopSelection(user: ReturnType<typeof userEvent.setup>) {
+  // Default selection is state mode when no depot coords are pasted.
+  await user.type(screen.getByLabelText("States"), "UT");
+}
+
 describe("DatasetWizard", () => {
   it("starts on route questions with no mention of file types (AC1)", () => {
     render(<DatasetWizard />);
@@ -110,6 +115,7 @@ describe("DatasetWizard", () => {
     await fillDepot(user);
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { name: "Stop details" });
+    await fillStopSelection(user);
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     // Review step (AC3 preview summary).
@@ -156,6 +162,7 @@ describe("DatasetWizard", () => {
     await fillDepot(user);
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { name: "Stop details" });
+    await fillStopSelection(user);
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { name: "Check your answers" });
     await user.click(screen.getByRole("button", { name: "Generate dataset" }));
@@ -198,6 +205,7 @@ describe("DatasetWizard", () => {
     await fillDepot(user);
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { name: "Stop details" });
+    await fillStopSelection(user);
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { name: "Check your answers" });
     await user.click(screen.getByRole("button", { name: "Generate dataset" }));

@@ -2,7 +2,7 @@
 
 import { useFormContext } from "react-hook-form";
 import { FREQUENCY_LABELS } from "@/lib/wizard-types";
-import { parseStates, type WizardFormValues } from "@/lib/wizard-schema";
+import { parseStates, parseZips, type WizardFormValues } from "@/lib/wizard-schema";
 
 interface ReviewProps {
   onNavigate: (step: number) => void;
@@ -39,7 +39,15 @@ export function Review({ onNavigate, onGenerate, generating, rootError }: Review
   const selectionText =
     v.selectionMode === "radius"
       ? `Within ${v.radiusMiles ?? "?"} miles of depots`
-      : `States: ${parseStates(v.states).join(", ") || "—"}`;
+      : v.selectionMode === "zip"
+        ? (() => {
+            try {
+              return `ZIPs: ${parseZips(v.zips).join(", ") || "—"}`;
+            } catch {
+              return `ZIPs: ${v.zips.trim() || "—"}`;
+            }
+          })()
+        : `States: ${parseStates(v.states).join(", ") || "—"}`;
   const frequencyText =
     (v.frequencyValues ?? [])
       .map((f) => FREQUENCY_LABELS[String(f)] ?? String(f))

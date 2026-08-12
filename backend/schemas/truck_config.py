@@ -35,6 +35,8 @@ class DepotSpec(BaseModel):
 
     `trucks` is the number of trucks (territories) exploded for this depot;
     territory numbering (T01, T02, ...) continues across depots.
+    Optional latitude/longitude are session paste values (SPEC-019); omitted
+    coords emit blank cells in the truck file.
     """
 
     address: str = Field(min_length=1)
@@ -42,11 +44,31 @@ class DepotSpec(BaseModel):
     state: str = Field(min_length=1)
     zip: str = Field(min_length=1)
     trucks: int = Field(gt=0)
+    latitude: float | None = Field(default=None, description="Optional WGS84 latitude")
+    longitude: float | None = Field(default=None, description="Optional WGS84 longitude")
 
     @field_validator("address", "city", "state", "zip")
     @classmethod
     def fields_ascii(cls, v: str) -> str:
         return _validate_ascii(v, "depot field")
+
+    @field_validator("latitude")
+    @classmethod
+    def latitude_bounds(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        if not (-90.0 <= v <= 90.0):
+            raise ValueError("latitude must be between -90 and 90")
+        return v
+
+    @field_validator("longitude")
+    @classmethod
+    def longitude_bounds(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        if not (-180.0 <= v <= 180.0):
+            raise ValueError("longitude must be between -180 and 180")
+        return v
 
 
 class TruckConfig(BaseModel):
@@ -91,8 +113,8 @@ class DepotSummary(BaseModel):
     state: str
     zip: str
     truck_count: int
-    latitude: float | None = Field(default=None, description="Inline WGS84 latitude (SPEC-017)")
-    longitude: float | None = Field(default=None, description="Inline WGS84 longitude (SPEC-017)")
+    latitude: float | None = Field(default=None, description="Inline WGS84 latitude (SPEC-019)")
+    longitude: float | None = Field(default=None, description="Inline WGS84 longitude (SPEC-019)")
 
 
 class TruckGenerationResponse(BaseModel):

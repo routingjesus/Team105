@@ -43,6 +43,8 @@ describe("buildTruckConfig", () => {
       state: "UT",
       zip: "84101",
       trucks: 5,
+      latitude: null,
+      longitude: null,
     });
     expect(config.volumes[0]).toEqual({ name: "Cases", capacity: 2000 });
   });
@@ -64,7 +66,12 @@ describe("buildStopConfig", () => {
 
   it("builds radius selection and nulls the state field", () => {
     const config = buildStopConfig({ ...values, selectionMode: "radius", radiusMiles: 50 }, truckResponse);
-    expect(config.selection).toEqual({ mode: "radius", radius_miles: 50, states: null });
+    expect(config.selection).toEqual({
+      mode: "radius",
+      radius_miles: 50,
+      states: null,
+      zips: null,
+    });
   });
 
   it("builds state selection from comma text", () => {
@@ -72,7 +79,64 @@ describe("buildStopConfig", () => {
       { ...values, selectionMode: "state", states: "ut, nv" },
       truckResponse,
     );
-    expect(config.selection).toEqual({ mode: "state", radius_miles: null, states: ["UT", "NV"] });
+    expect(config.selection).toEqual({
+      mode: "state",
+      radius_miles: null,
+      states: ["UT", "NV"],
+      zips: null,
+    });
+  });
+
+  it("builds zip selection and maps session manual stops", () => {
+    const config = buildStopConfig(
+      {
+        ...values,
+        selectionMode: "zip",
+        zips: "84101, 67861-67942",
+        manualStops: [
+          {
+            address: "9 Custom Rd",
+            address2: "",
+            city: "Denver",
+            state: "CO",
+            zip: "80202",
+            latitude: undefined,
+            longitude: undefined,
+          },
+        ],
+      },
+      truckResponse,
+    );
+    expect(config.selection.mode).toBe("zip");
+    expect(config.selection.zips?.[0]).toBe("84101");
+    expect(config.selection.zips).toContain("67861");
+    expect(config.selection.zips).toContain("67942");
+    expect(config.manual_stops).toEqual([
+      {
+        address: "9 Custom Rd",
+        address2: "",
+        city: "Denver",
+        state: "CO",
+        zip: "80202",
+        latitude: null,
+        longitude: null,
+      },
+    ]);
+  });
+
+  it("forwards depot paste coords on the truck config", () => {
+    const config = buildTruckConfig({
+      ...values,
+      depots: [
+        {
+          ...values.depots[0],
+          latitude: 38.38080520110032,
+          longitude: -97.4279212147894,
+        },
+      ],
+    });
+    expect(config.depots[0].latitude).toBe(38.38080520110032);
+    expect(config.depots[0].longitude).toBe(-97.4279212147894);
   });
 
   it("nulls fixed-window times in randomized mode and omits optional blocks", () => {

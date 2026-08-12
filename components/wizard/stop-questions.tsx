@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import { useController, useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import {
   DAY_LABELS,
@@ -9,7 +9,7 @@ import {
   FREQUENCY_VALUES,
   type DayLetter,
 } from "@/lib/wizard-types";
-import { emptyLocationFields, normalizeAddressKey } from "@/lib/location-utils";
+import { emptyLocationFields, hasValidCoordinates } from "@/lib/location-utils";
 import type { WizardFormValues } from "@/lib/wizard-schema";
 import { NumberField, TextField } from "./fields";
 import { LocationEntryPanel } from "./location-entry-panel";
@@ -19,7 +19,7 @@ import { LocationEntryPanel } from "./location-entry-panel";
  * announcement and no mention of the .XLSX stop file being built (AC 2).
  */
 export function StopQuestions() {
-  const { control, register, getFieldState, getValues, formState } =
+  const { control, register, getFieldState, getValues, setValue, formState } =
     useFormContext<WizardFormValues>();
 
   const selectionMode = useWatch({ control, name: "selectionMode" });
@@ -29,22 +29,12 @@ export function StopQuestions() {
   const consolidationEnabled = useWatch({ control, name: "consolidationEnabled" });
   const aliasesEnabled = useWatch({ control, name: "aliasesEnabled" });
   const volumes = useWatch({ control, name: "volumes" });
+  const depots = useWatch({ control, name: "depots" });
 
   const volumeAnswers = useFieldArray({ control, name: "volumeAnswers" });
   const manualStops = useFieldArray({ control, name: "manualStops" });
-  const [sessionKeys, setSessionKeys] = useState<Set<string>>(() => new Set());
-  const manualStopValues = useWatch({ control, name: "manualStops" });
   const namesKey = (volumes ?? []).map((v) => v?.name ?? "").join("|");
-
-  const sessionKeySet = useMemo(() => {
-    const keys = new Set(sessionKeys);
-    for (const stop of manualStopValues ?? []) {
-      if (stop.inLocationDb) {
-        keys.add(normalizeAddressKey(stop.address, stop.city, stop.state, stop.zip));
-      }
-    }
-    return keys;
-  }, [manualStopValues, sessionKeys]);
+  const radiusAvailable = (depots ?? []).some((depot) => hasValidCoordinates(depot));
 
   // Keep one volume answer per named volume, preserving existing answers by name.
   useEffect(() => {
@@ -65,6 +55,13 @@ export function StopQuestions() {
     if (changed) volumeAnswers.replace(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [namesKey]);
+
+  // Radius needs at least one depot with coordinates; fall back to state otherwise.
+  useEffect(() => {
+    if (!radiusAvailable && selectionMode === "radius") {
+      setValue("selectionMode", "state", { shouldDirty: true });
+    }
+  }, [radiusAvailable, selectionMode, setValue]);
 
   const frequency = useController({ control, name: "frequencyValues" });
   const frequencyError = getFieldState("frequencyValues", formState).error;
@@ -97,14 +94,24 @@ export function StopQuestions() {
       <fieldset className="group">
         <legend>Where do stops come from?</legend>
         <div className="radio-row">
-          <label>
-            <input type="radio" value="radius" {...register("selectionMode")} /> Within a radius of
-            the depots
-          </label>
+          {radiusAvailable ? (
+            <label>
+              <input type="radio" value="radius" {...register("selectionMode")} /> Within a radius
+              of the depots
+            </label>
+          ) : null}
           <label>
             <input type="radio" value="state" {...register("selectionMode")} /> In specific states
           </label>
+          <label>
+            <input type="radio" value="zip" {...register("selectionMode")} /> In specific ZIP codes
+          </label>
         </div>
+        {!radiusAvailable ? (
+          <p className="field-hint">
+            Radius selection is unavailable until at least one depot has coordinates.
+          </p>
+        ) : null}
         {selectionMode === "radius" ? (
           <NumberField
             name="radiusMiles"
@@ -113,21 +120,30 @@ export function StopQuestions() {
             min={0}
             step="any"
           />
-        ) : (
+        ) : null}
+        {selectionMode === "state" ? (
           <TextField
             name="states"
             label="States"
             hint="Comma-separated 2-letter codes, e.g. UT, NV, ID."
             placeholder="UT, NV"
           />
-        )}
+        ) : null}
+        {selectionMode === "zip" ? (
+          <TextField
+            name="zips"
+            label="ZIP codes"
+            hint="Comma-separated ZIPs and inclusive ranges, e.g. 84101, 67861-67942."
+            placeholder="84101, 67861-67942"
+          />
+        ) : null}
       </fieldset>
 
       <fieldset className="group">
         <legend>Manual stop locations (optional)</legend>
         <p className="field-hint">
-          Add specific customer locations that are not already in the bundled database. Geocode or
-          enter coordinates, then save each stop to the location database before generating.
+          Add specific customer locations for this run only. They appear in the generated stop file
+          and are not saved to the location database. Coordinates are optional.
         </p>
         {manualStops.fields.map((field, index) => (
           <div className="repeat-row" key={field.id}>
@@ -141,11 +157,7 @@ export function StopQuestions() {
                 Remove
               </button>
             </div>
-            <LocationEntryPanel
-              namePrefix={`manualStops.${index}`}
-              sessionKeys={sessionKeySet}
-              onSessionKeyAdded={(key) => setSessionKeys((prev) => new Set(prev).add(key))}
-            />
+            <LocationEntryPanel namePrefix={`manualStops.${index}`} />
           </div>
         ))}
         <button

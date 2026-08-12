@@ -4,6 +4,8 @@ import {
   isValidTimeWindow,
   parseStates,
   parseCsv,
+  parseZips,
+  ZipParseError,
   wizardSchema,
   type WizardFormValues,
 } from "./wizard-schema";
@@ -11,6 +13,8 @@ import {
 const validValues: WizardFormValues = {
   ...defaultWizardValues,
   depots: [{ ...defaultWizardValues.depots[0], address: "1 Warehouse Way", city: "Salt Lake City", state: "UT", zip: "84101" }],
+  selectionMode: "state",
+  states: "UT",
 };
 
 describe("isValidTimeWindow", () => {
@@ -32,6 +36,21 @@ describe("parseStates / parseCsv", () => {
   });
   it("splits csv preserving case", () => {
     expect(parseCsv("LIFT, dock ,")).toEqual(["LIFT", "dock"]);
+  });
+});
+
+describe("parseZips", () => {
+  it("parses singles, ranges, ZIP+4, and leading zeros", () => {
+    const zips = parseZips("84101, 67861-67942, 08001-1234, 801");
+    expect(zips).toContain("84101");
+    expect(zips).toContain("67861");
+    expect(zips).toContain("67942");
+    expect(zips).toContain("08001");
+    expect(zips).toContain("00801");
+  });
+
+  it("rejects inverted ranges", () => {
+    expect(() => parseZips("67942-67861")).toThrow(ZipParseError);
   });
 });
 
@@ -92,6 +111,24 @@ describe("wizardSchema", () => {
       radiusMiles: undefined,
     });
     expect(result.success).toBe(false);
+  });
+
+  it("requires zips when selection mode is zip", () => {
+    const result = wizardSchema.safeParse({
+      ...validValues,
+      selectionMode: "zip",
+      zips: "",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts zip mode with a valid list", () => {
+    const result = wizardSchema.safeParse({
+      ...validValues,
+      selectionMode: "zip",
+      zips: "84101, 67861-67942",
+    });
+    expect(result.success).toBe(true);
   });
 
   it("accepts blank ID2/ID3 aliases", () => {

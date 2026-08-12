@@ -7,10 +7,14 @@ import pytest
 from backend.schemas.truck_config import DepotSpec
 from backend.services.spatial import (
     DepotCoordinateError,
+    ZipParseError,
     filter_by_radius,
     filter_by_state,
+    filter_by_zip,
     haversine_miles,
     load_location_db,
+    normalize_zip5,
+    parse_zips,
     resolve_depot_coordinates,
     thin_to_target,
 )
@@ -172,3 +176,39 @@ def test_resolve_depot_coordinates_uses_inline_coords(location_db):
     lat, lon = resolve_depot_coordinates(depot, location_db)
     assert lat == pytest.approx(39.7392)
     assert lon == pytest.approx(-104.9903)
+
+
+def test_normalize_zip5_pads_and_strips_zip4():
+    assert normalize_zip5("84101") == "84101"
+    assert normalize_zip5("801") == "00801"
+    assert normalize_zip5("84101-1234") == "84101"
+    assert normalize_zip5("841011234") == "84101"
+
+
+def test_parse_zips_lists_and_inclusive_ranges():
+    assert parse_zips("84101, 67861-67942")[0] == "84101"
+    expanded = parse_zips("67861-67942")
+    assert expanded[0] == "67861"
+    assert expanded[-1] == "67942"
+    assert len(expanded) == 67942 - 67861 + 1
+
+
+def test_parse_zips_rejects_inverted_range():
+    with pytest.raises(ZipParseError, match="greater than or equal"):
+        parse_zips("67942-67861")
+
+
+def test_filter_by_zip_matches_normalized_values(location_db):
+    sample_zip = str(location_db.iloc[0]["Zip"])
+    zip5 = normalize_zip5(sample_zip)
+    filtered = filter_by_zip(location_db, [zip5])
+    assert len(filtered) >= 1
+    assert all(normalize_zip5(z) == zip5 for z in filtered["Zip"])
+
+
+def test_filter_by_zip_against_real_location_db():
+    real_db = load_location_db("backend/data/location_db.xlsx")
+    zip5 = normalize_zip5(str(real_db.iloc[0]["Zip"]))
+    filtered = filter_by_zip(real_db, [zip5, "84101"])
+    assert len(filtered) >= 1
+    assert all(normalize_zip5(z) in {zip5, "84101"} for z in filtered["Zip"])

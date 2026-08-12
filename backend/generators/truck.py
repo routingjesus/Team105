@@ -119,8 +119,14 @@ BASE_COLUMNS: tuple[tuple[str, Callable[[RowContext], str]], ...] = (
     ("MaxLayover", _empty),
     ("MaxDrvTmB4Layover", _empty),
     ("MaxLayovers", _empty),
-    ("Longitude", _empty),  # geocoding out of scope (SPEC-002 boundary)
-    ("Latitude", _empty),
+            (
+        "Longitude",
+        lambda ctx: "" if ctx.depot.longitude is None else f"{ctx.depot.longitude:.6f}",
+    ),
+    (
+        "Latitude",
+        lambda ctx: "" if ctx.depot.latitude is None else f"{ctx.depot.latitude:.6f}",
+    ),
     ("Address", lambda ctx: ctx.depot.address),
     ("City", lambda ctx: ctx.depot.city),
     ("State", lambda ctx: ctx.depot.state),

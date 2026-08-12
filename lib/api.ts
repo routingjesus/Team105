@@ -2,11 +2,6 @@ import type {
   FastApiErrorBody,
   FastApiValidationDetail,
   DrprojectConfigResponse,
-  GeocodeRequest,
-  GeocodeResponse,
-  LocationAppendResponse,
-  LocationDuplicateResponse,
-  LocationEntry,
   StopConfig,
   StopCsvGenerationResponse,
   StopCsvRequest,
@@ -86,7 +81,12 @@ const TOP_LEVEL_MAP: Record<string, string> = {
 
 // Nested API objects the form flattens into top-level fields.
 const NESTED_MAP: Record<string, Record<string, string>> = {
-  selection: { mode: "selectionMode", radius_miles: "radiusMiles", states: "states" },
+  selection: {
+    mode: "selectionMode",
+    radius_miles: "radiusMiles",
+    states: "states",
+    zips: "zips",
+  },
   time_window: {
     mode: "timeWindowMode",
     open1: "open1",
@@ -206,48 +206,6 @@ export function generateDrprojectConfig(config: StopConfig): Promise<DrprojectCo
 
 export function generateStopsCsv(request: StopCsvRequest): Promise<StopCsvGenerationResponse> {
   return postJson<StopCsvGenerationResponse>("/api/stops-csv/generate", request);
-}
-
-export function geocodeLocation(request: GeocodeRequest): Promise<GeocodeResponse> {
-  return postJson<GeocodeResponse>("/api/locations/geocode", request);
-}
-
-export class LocationDuplicateError extends Error {
-  readonly duplicate: LocationDuplicateResponse;
-
-  constructor(duplicate: LocationDuplicateResponse) {
-    super(duplicate.message);
-    this.name = "LocationDuplicateError";
-    this.duplicate = duplicate;
-  }
-}
-
-export async function appendLocation(entry: LocationEntry): Promise<LocationAppendResponse> {
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE_URL}/api/locations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(entry),
-    });
-  } catch {
-    throw new ApiError(
-      0,
-      [],
-      `Could not reach the generation service at ${API_BASE_URL}. Is the backend running?`,
-    );
-  }
-
-  if (response.status === 409) {
-    const body = (await response.json()) as { detail: LocationDuplicateResponse };
-    throw new LocationDuplicateError(body.detail);
-  }
-
-  if (!response.ok) {
-    throw await parseErrorBody(response);
-  }
-
-  return (await response.json()) as LocationAppendResponse;
 }
 
 /** Decode base64 file content (from a `generate` response) into a Blob. */
