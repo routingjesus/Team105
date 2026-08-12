@@ -1,0 +1,51 @@
+schema_version: "2026.04"
+status: done
+created: 2026-08-06
+updated: 2026-08-06
+
+# Origin (optional — informational, not a dependency)
+# source: "https://..."                 # Shareable origin breadcrumb, never a local filesystem path like /home/... or /Users/...
+# tracking_id: ""                       # External reference (Notion task, Jira ticket, etc.)
+
+depends_on:
+  - "SPEC-004"
+  - "SPEC-013"
+
+coordination:
+  blast_radius: isolated
+  parallel_safe: true
+
+# Freshness snapshot (populate when status reaches ready)
+# ready_sha: ""                         # Full git HEAD commit recorded at the ready transition; used for advisory staleness checks
+
+# Completion (populate when status reaches done)
+# completion:
+#   date: 2026-08-06
+#   acceptance_criteria_waived:         # Omit if none waived
+#     - acceptance_criteria: ""
+#       rationale: ""
+#   self_review_waived:                 # Omit if none waived; pr-review blocking findings the user accepted to proceed
+#     - finding: ""
+#       rationale: ""
+#   pull_requests:
+#     - "https://github.com/..."
+
+# Learnings (add during and after execution)
+learnings:
+  - type: pattern_discovered
+    summary: "Embeddable CPython ._pth ignores CWD and PYTHONPATH; package must add a relative ..\\..\\app entry so uvicorn can import backend.main"
+    context: "Without that ._pth line, launch-portable fails at the backend.main probe even though backend/ sits in the launcher CWD. Regular CPython (run-local .venv) does not need this."
+    tags: [portable, python, embeddable, windows]
+    date: 2026-08-06
+  - type: pitfall
+    summary: "PowerShell functions must not return paths after bare npm/robocopy stdout; pipe npm to Out-Host and avoid unquoted robocopy args on paths with spaces/!"
+    context: "Build-NextStandalone initially returned npm build logs as the standalone path; Start-Process robocopy split C:\\...\\! Cursor\\... on spaces. Use Copy-Item tree copy instead."
+    tags: [powershell, packaging, windows]
+    date: 2026-08-06
+ready_sha: "a5fc2f063fc248ae0ff21b0858294f00816a7133"
+
+completion:
+  date: 2026-08-06
+  pull_requests:
+    # Packaging scripts landed on main via #30; original #26 was closed as stale/superseded.
+    - "https://github.com/routingjesus/Team105/pull/30"
