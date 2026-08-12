@@ -128,7 +128,9 @@ describe("generateTruck / generateStops", () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,
       status: 422,
-      json: async () => ({ detail: "Depot could not be geocoded" }),
+      json: async () => ({
+        detail: "No depot has coordinates available for radius selection.",
+      }),
     })) as unknown as typeof fetch;
     vi.stubGlobal("fetch", fetchMock);
 
@@ -137,7 +139,9 @@ describe("generateTruck / generateStops", () => {
       throw new Error("expected rejection");
     } catch (error) {
       expect(error).toBeInstanceOf(ApiError);
-      expect((error as ApiError).rootMessage).toBe("Depot could not be geocoded");
+      expect((error as ApiError).rootMessage).toBe(
+        "No depot has coordinates available for radius selection.",
+      );
       expect((error as ApiError).fieldErrors).toEqual([]);
     }
   });
@@ -203,7 +207,9 @@ describe("downloadFile (raw-bytes path)", () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,
       status: 422,
-      json: async () => ({ detail: "Depot could not be geocoded" }),
+      json: async () => ({
+        detail: "No depot has coordinates available for radius selection.",
+      }),
     })) as unknown as typeof fetch;
     vi.stubGlobal("fetch", fetchMock);
 

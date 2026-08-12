@@ -1,10 +1,15 @@
-import { parseCsv, parseStates, type WizardFormValues } from "./wizard-schema";
+import { parseCsv, parseStates, parseZips, type WizardFormValues } from "./wizard-schema";
 import type {
   AliasConfig,
+  ManualStop,
   StopConfig,
   TruckConfig,
   TruckGenerationResponse,
 } from "./wizard-types";
+
+function optionalCoord(value: number | undefined): number | null {
+  return value == null || Number.isNaN(value) ? null : value;
+}
 
 /** Map wizard form values to the exact `TruckConfig` request body. */
 export function buildTruckConfig(values: WizardFormValues): TruckConfig {
@@ -16,6 +21,8 @@ export function buildTruckConfig(values: WizardFormValues): TruckConfig {
       state: d.state.trim(),
       zip: d.zip.trim(),
       trucks: d.trucks,
+      latitude: optionalCoord(d.latitude),
+      longitude: optionalCoord(d.longitude),
     })),
     mi_cost: values.miCost,
     hr_cost: values.hrCost,
@@ -48,6 +55,18 @@ function buildAliases(values: WizardFormValues): AliasConfig | null {
   return hasAny ? aliases : null;
 }
 
+function buildManualStops(values: WizardFormValues): ManualStop[] {
+  return (values.manualStops ?? []).map((stop) => ({
+    address: stop.address.trim(),
+    address2: (stop.address2 ?? "").trim(),
+    city: stop.city.trim(),
+    state: stop.state.trim(),
+    zip: stop.zip.trim(),
+    latitude: optionalCoord(stop.latitude),
+    longitude: optionalCoord(stop.longitude),
+  }));
+}
+
 /**
  * Map wizard form values to the exact `StopConfig` request body.
  *
@@ -66,8 +85,8 @@ export function buildStopConfig(
       const longitude = formDepot?.longitude;
       return {
         ...depot,
-        latitude: latitude ?? null,
-        longitude: longitude ?? null,
+        latitude: latitude ?? depot.latitude ?? null,
+        longitude: longitude ?? depot.longitude ?? null,
       };
     }),
     weeks: truck.weeks,
@@ -76,6 +95,7 @@ export function buildStopConfig(
       mode: values.selectionMode,
       radius_miles: values.selectionMode === "radius" ? (values.radiusMiles ?? null) : null,
       states: values.selectionMode === "state" ? parseStates(values.states) : null,
+      zips: values.selectionMode === "zip" ? parseZips(values.zips) : null,
     },
     stop_count: values.stopCount,
     fixed_time_minutes: values.fixedTimeMinutes,
@@ -105,6 +125,7 @@ export function buildStopConfig(
     aliases: buildAliases(values),
     generate_shapes: values.generateShapes,
     generate_colors: values.generateColors,
+    manual_stops: buildManualStops(values),
     seed: values.seed,
   };
   return config;

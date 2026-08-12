@@ -20,6 +20,8 @@ export interface DepotSpec {
   state: string;
   zip: string;
   trucks: number;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface TruckConfig {
@@ -63,12 +65,23 @@ export interface TruckGenerationResponse {
 
 // --- Stop request (backend/schemas/stop_config.py) ---
 
-export type SelectionMode = "radius" | "state";
+export type SelectionMode = "radius" | "state" | "zip";
 
 export interface SelectionConfig {
   mode: SelectionMode;
   radius_miles?: number | null;
   states?: string[] | null;
+  zips?: string[] | null;
+}
+
+export interface ManualStop {
+  address: string;
+  address2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export type VolumeAnswerMode = "fixed" | "averaged";
@@ -127,6 +140,7 @@ export interface StopConfig {
   aliases?: AliasConfig | null;
   generate_shapes: boolean;
   generate_colors: boolean;
+  manual_stops?: ManualStop[];
   seed: number;
 }
 
@@ -173,48 +187,6 @@ export interface FastApiValidationDetail {
 
 export interface FastApiErrorBody {
   detail?: string | FastApiValidationDetail[] | Record<string, unknown>;
-}
-
-// --- Location geocode / persist (SPEC-017) ---
-
-export interface GeocodeRequest {
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-}
-
-export interface GeocodeResponse {
-  latitude: number;
-  longitude: number;
-  formatted_address?: string | null;
-  provider: string;
-}
-
-export interface LocationEntry {
-  address: string;
-  address2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  latitude: number;
-  longitude: number;
-}
-
-export interface LocationAppendResponse {
-  name: string;
-  id1: string;
-  latitude: number;
-  longitude: number;
-  message: string;
-}
-
-export interface LocationDuplicateResponse {
-  existing_name: string;
-  existing_id1: string;
-  latitude: number;
-  longitude: number;
-  message: string;
 }
 
 /**

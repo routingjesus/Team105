@@ -143,9 +143,10 @@ def validate_time_window(open1: int, close1: int, fixed_time_minutes: float) -> 
 class SelectionConfig(BaseModel):
     """How candidate stops are drawn from the static location database."""
 
-    mode: Literal["radius", "state"]
+    mode: Literal["radius", "state", "zip"]
     radius_miles: float | None = Field(default=None, gt=0)
     states: list[str] | None = Field(default=None, min_length=1)
+    zips: list[str] | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def mode_matches_fields(self) -> "SelectionConfig":
@@ -153,6 +154,8 @@ class SelectionConfig(BaseModel):
             raise ValueError("radius_miles is required when mode is 'radius'")
         if self.mode == "state" and not self.states:
             raise ValueError("states is required when mode is 'state'")
+        if self.mode == "zip" and not self.zips:
+            raise ValueError("zips is required when mode is 'zip'")
         return self
 
     @field_validator("states")
@@ -161,6 +164,57 @@ class SelectionConfig(BaseModel):
         if v is None:
             return v
         return [_validate_ascii(s, "state") for s in v]
+
+    @field_validator("zips")
+    @classmethod
+    def zips_normalized(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        normalized: list[str] = []
+        for zip_code in v:
+            text = _validate_ascii(zip_code, "zip")
+            digits = text.strip()
+            if not digits:
+                raise ValueError("zips entries must be non-empty")
+            if not digits.isdigit() or len(digits) > 5:
+                raise ValueError(f"invalid zip code: {zip_code!r}")
+            normalized.append(digits.zfill(5))
+        return normalized
+
+
+class ManualStop(BaseModel):
+    """Session-only stop supplied by the wizard (not persisted to location_db)."""
+
+    address: str = Field(min_length=1)
+    address2: str = Field(default="")
+    city: str = Field(min_length=1)
+    state: str = Field(min_length=1)
+    zip: str = Field(min_length=1)
+    latitude: float | None = None
+    longitude: float | None = None
+
+    @field_validator("address", "address2", "city", "state", "zip")
+    @classmethod
+    def fields_ascii(cls, v: str) -> str:
+        return _validate_ascii(v, "manual stop field")
+
+    @field_validator("latitude")
+    @classmethod
+    def latitude_bounds(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        if not (-90.0 <= v <= 90.0):
+            raise ValueError("latitude must be between -90 and 90")
+        return v
+
+    @field_validator("longitude")
+    @classmethod
+    def longitude_bounds(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        if not (-180.0 <= v <= 180.0):
+            raise ValueError("longitude must be between -180 and 180")
+        return v
 
 
 class VolumeAnswer(BaseModel):
@@ -254,6 +308,7 @@ class StopConfig(BaseModel):
     aliases: AliasConfig | None = None
     generate_shapes: bool = False
     generate_colors: bool = False
+    manual_stops: list[ManualStop] = Field(default_factory=list)
     seed: int = Field(default=0)
 
     @field_validator("frequency_values")

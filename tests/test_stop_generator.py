@@ -27,6 +27,7 @@ from backend.schemas.stop_config import (
     AliasConfig,
     ConsolidationConfig,
     EqCodeConfig,
+    ManualStop,
     SelectionConfig,
     StopConfig,
     TimeWindowConfig,
@@ -651,3 +652,56 @@ class TestGenerateStopFile:
         df = pd.read_excel(pd.io.common.BytesIO(content), sheet_name="Stop File")
         assert len(df) == len(candidates)
         assert list(df.columns) == build_header(base_config)
+
+
+class TestSessionManualStopsAndZip:
+    def test_zip_mode_filters_candidates(self, base_config, location_db):
+        sample_zip = str(location_db.iloc[0]["Zip"]).strip()[:5].zfill(5)
+        base_config.selection = SelectionConfig(mode="zip", zips=[sample_zip])
+        candidates, raw_count = select_candidates(base_config, location_db)
+        assert raw_count >= 1
+        assert len(candidates) >= 1
+
+    def test_manual_stop_appended_after_thin_with_blank_coords(self, base_config, location_db):
+        base_config.selection = SelectionConfig(mode="state", states=["OH"])
+        base_config.stop_count = 1
+        base_config.manual_stops = [
+            ManualStop(
+                address="Session Only Rd",
+                city="Denver",
+                state="CO",
+                zip="80202",
+            )
+        ]
+        candidates = select_candidates(base_config, location_db)[0]
+        assert len(candidates) == 2
+        assert (candidates["Address"] == "Session Only Rd").any()
+        rows = build_rows(base_config, candidates)
+        header = build_header(base_config)
+        address_idx = header.index("Address")
+        lat_idx = header.index("Latitude")
+        lon_idx = header.index("Longitude")
+        manual = next(row for row in rows if row[address_idx] == "Session Only Rd")
+        assert manual[lat_idx] == ""
+        assert manual[lon_idx] == ""
+
+    def test_manual_stop_survives_when_db_thin_is_empty(self, base_config, location_db):
+        base_config.selection = SelectionConfig(mode="state", states=["ZZ"])
+        base_config.stop_count = 1
+        base_config.manual_stops = [
+            ManualStop(
+                address="Only Manual",
+                city="Austin",
+                state="TX",
+                zip="78701",
+                latitude=30.2672,
+                longitude=-97.7431,
+            )
+        ]
+        candidates = select_candidates(base_config, location_db)[0]
+        assert len(candidates) == 1
+        rows = build_rows(base_config, candidates)
+        assert len(rows) == 1
+        header = build_header(base_config)
+        assert rows[0][header.index("Address")] == "Only Manual"
+        assert rows[0][header.index("Latitude")] == "30.267200"

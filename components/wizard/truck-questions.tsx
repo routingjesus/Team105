@@ -1,8 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
-import { normalizeAddressKey } from "@/lib/location-utils";
 import type { WizardFormValues } from "@/lib/wizard-schema";
 import { NumberField, TextField } from "./fields";
 import { LocationEntryPanel } from "./location-entry-panel";
@@ -12,21 +10,9 @@ import { LocationEntryPanel } from "./location-entry-panel";
  * type being built (the .TRUCK file) is never surfaced to the user (AC 1).
  */
 export function TruckQuestions() {
-  const { control, getFieldState, formState, watch } = useFormContext<WizardFormValues>();
+  const { control, getFieldState, formState } = useFormContext<WizardFormValues>();
   const depots = useFieldArray({ control, name: "depots" });
   const volumes = useFieldArray({ control, name: "volumes" });
-  const [sessionKeys, setSessionKeys] = useState<Set<string>>(() => new Set());
-  const depotValues = watch("depots");
-
-  const sessionKeySet = useMemo(() => {
-    const keys = new Set(sessionKeys);
-    for (const depot of depotValues ?? []) {
-      if (depot.inLocationDb) {
-        keys.add(normalizeAddressKey(depot.address, depot.city, depot.state, depot.zip));
-      }
-    }
-    return keys;
-  }, [depotValues, sessionKeys]);
 
   const depotsError = getFieldState("depots", formState).error;
   const volumesError = getFieldState("volumes", formState).error;
@@ -70,11 +56,7 @@ export function TruckQuestions() {
                 </button>
               ) : null}
             </div>
-            <LocationEntryPanel
-              namePrefix={`depots.${index}`}
-              sessionKeys={sessionKeySet}
-              onSessionKeyAdded={(key) => setSessionKeys((prev) => new Set(prev).add(key))}
-            />
+            <LocationEntryPanel namePrefix={`depots.${index}`} />
             <NumberField
               name={`depots.${index}.trucks`}
               label="Trucks at this depot"
@@ -96,9 +78,6 @@ export function TruckQuestions() {
               trucks: 5,
               latitude: undefined,
               longitude: undefined,
-              geoSource: null,
-              inLocationDb: false,
-              showManualCoords: false,
             })
           }
         >

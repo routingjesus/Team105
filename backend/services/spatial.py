@@ -70,8 +70,8 @@ def resolve_depot_coordinates(
 ) -> tuple[float, float]:
     """Match a depot's address against location_db; fall back to City/State/Zip.
 
-    When the depot carries inline latitude/longitude (SPEC-017 manual or
-    geocoded entry before persist), those values are used directly.
+    When the depot carries inline latitude/longitude (session paste from
+    the wizard), those values are used directly.
 
     Returns (latitude, longitude). Raises DepotCoordinateError if neither an
     exact address match nor a City/State/Zip match exists.
@@ -121,6 +121,79 @@ def filter_by_state(candidates: pd.DataFrame, states: list[str]) -> pd.DataFrame
     wanted = {s.casefold() for s in states}
     mask = candidates["State"].str.casefold().isin(wanted)
     return candidates[mask].copy()
+
+
+class ZipParseError(ValueError):
+    """Raised when a ZIP list/range token is invalid or inverted."""
+
+
+def normalize_zip5(raw: str) -> str:
+    """Normalize a ZIP token to a 5-digit string (ZIP+4 → base-5, left-pad)."""
+    digits = str(raw).strip().replace(" ", "")
+    if len(digits) == 10 and digits[5] == "-" and digits[:5].isdigit() and digits[6:].isdigit():
+        return digits[:5]
+    if len(digits) == 9 and digits.isdigit():
+        return digits[:5]
+    if digits.isdigit() and 1 <= len(digits) <= 5:
+        return digits.zfill(5)
+    raise ZipParseError(f"Invalid ZIP code: {raw}")
+
+
+def parse_zips(raw: str) -> list[str]:
+    """Parse comma-separated ZIP codes and inclusive ranges into 5-digit strings."""
+    tokens = [part.strip() for part in raw.split(",") if part.strip()]
+    if not tokens:
+        return []
+    result: list[str] = []
+    seen: set[str] = set()
+    for token in tokens:
+        if "-" in token:
+            left, right = token.split("-", 1)
+            left, right = left.strip(), right.strip()
+            # ZIP+4 (#####-####) is a single code, not a range.
+            if left.isdigit() and len(left) == 5 and right.isdigit() and len(right) == 4:
+                zip5 = normalize_zip5(f"{left}-{right}")
+                if zip5 not in seen:
+                    seen.add(zip5)
+                    result.append(zip5)
+                continue
+            start = normalize_zip5(left)
+            end = normalize_zip5(right)
+            start_num = int(start)
+            end_num = int(end)
+            if end_num < start_num:
+                raise ZipParseError(
+                    f"Zip range end must be greater than or equal to start: {token}"
+                )
+            for n in range(start_num, end_num + 1):
+                zip5 = f"{n:05d}"
+                if zip5 not in seen:
+                    seen.add(zip5)
+                    result.append(zip5)
+            continue
+        zip5 = normalize_zip5(token)
+        if zip5 not in seen:
+            seen.add(zip5)
+            result.append(zip5)
+    return result
+
+
+def _zip5_or_empty(value: object) -> str:
+    text = str(value).strip() if value is not None and not (isinstance(value, float) and pd.isna(value)) else ""
+    if not text:
+        return ""
+    try:
+        return normalize_zip5(text)
+    except ZipParseError:
+        return ""
+
+
+def filter_by_zip(candidates: pd.DataFrame, zips: list[str]) -> pd.DataFrame:
+    """Keep candidates whose normalized 5-digit Zip is in the given set."""
+    wanted = {_zip5_or_empty(z) for z in zips}
+    wanted.discard("")
+    normalized = candidates["Zip"].map(_zip5_or_empty)
+    return candidates[normalized.isin(wanted)].copy()
 
 
 def thin_to_target(candidates: pd.DataFrame, target_count: int, seed: int = 0) -> pd.DataFrame:
