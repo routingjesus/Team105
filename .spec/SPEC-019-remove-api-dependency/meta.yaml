@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: in_progress
+status: done
 created: 2026-08-12
 updated: 2026-08-12
 
@@ -37,10 +37,23 @@ ready_sha: "79b57d81a3e1ea213a498d8cb5abb33f43dc02a1"
 #   pull_requests:
 #     - "https://github.com/..."
 
-# Learnings (add during and after execution)
-# learnings:
-#   - type: pattern_discovered          # See references/spec-format.md for all types
-#     summary: ""
-#     context: ""
-#     tags: []
-#     date: 2026-08-12
+learnings:
+  - type: pattern_discovered
+    summary: "Session manual stops must be appended after thin_to_target as a protected cohort; including them in the thinned DataFrame before density sampling lets stop_count remove them."
+    context: "select_candidates now thins DB candidates only, then concat(_manual_stops_frame)."
+    tags: [stop-selection, manual-stops, thinning]
+    date: 2026-08-12
+  - type: assumption_confirmed
+    summary: "Defaulting selectionMode to state (and hiding radius until a depot has coords) is required for address-only demos; keeping default radius breaks Continue validation when no coords are pasted."
+    context: "Wizard integration tests needed States filled after the default flip."
+    tags: [wizard-ui, radius-gating]
+    date: 2026-08-12
+  - type: constraint_discovered
+    summary: "pandas concat of DB float coords with all-NA session lat/long warns unless Latitude/Longitude are coerced to float64 before concat."
+    context: "FutureWarning on empty/all-NA concat during blank-coord manual stop tests."
+    tags: [pandas, coordinates]
+    date: 2026-08-12
+
+completion:
+  date: 2026-08-12
+  pull_requests: []
