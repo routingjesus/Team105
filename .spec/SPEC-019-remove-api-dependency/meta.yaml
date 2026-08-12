@@ -23,7 +23,7 @@ coordination:
 #   base_branch: ""                    # Branch to fork from; defaults to repo default branch when absent
 #   target_branch: ""                  # PR base branch; defaults to repo default branch when absent
 
-ready_sha: "586b4b7ed66e109e30ed939593af73b7ff8dc638"
+ready_sha: "79b57d81a3e1ea213a498d8cb5abb33f43dc02a1"
 
 # Completion (populate when status reaches done)
 # completion:
