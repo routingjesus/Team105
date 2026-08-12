@@ -13,6 +13,9 @@ const API_PROXY_TARGET = (process.env.API_PROXY_TARGET ?? "http://127.0.0.1:8080
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Portable Windows zip (SPEC-018) ships the standalone server tree; local
+  // `next start` / `run-local` keep working with the full `.next` output.
+  output: "standalone",
   async rewrites() {
     return [
       {
