@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hasCompleteAddress, hasValidCoordinates } from "./location-utils";
 import type { DayLetter, PatternScope } from "./wizard-types";
 
 /**
@@ -57,17 +58,32 @@ const lonSchema = z.preprocess(
     .optional(),
 );
 
-const locationFieldsSchema = z.object({
-  address: requiredAscii,
-  address2: optionalAscii,
-  city: requiredAscii,
-  state: requiredAscii,
-  zip: requiredAscii,
-  latitude: coordSchema,
-  longitude: lonSchema,
-});
+const ADDRESS_QUARTET = ["address", "city", "state", "zip"] as const;
 
-const depotSchema = locationFieldsSchema.extend({
+const locationFieldsSchema = z
+  .object({
+    address: optionalAscii,
+    address2: optionalAscii,
+    city: optionalAscii,
+    state: optionalAscii,
+    zip: optionalAscii,
+    latitude: coordSchema,
+    longitude: lonSchema,
+  })
+  .superRefine((data, ctx) => {
+    if (hasValidCoordinates(data) || hasCompleteAddress(data)) return;
+    for (const field of ADDRESS_QUARTET) {
+      if (!data[field].trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Required",
+          path: [field],
+        });
+      }
+    }
+  });
+
+const depotSchema = locationFieldsSchema.safeExtend({
   trucks: z.coerce.number().int("Whole number of trucks").gt(0, "Need at least 1 truck"),
 });
 

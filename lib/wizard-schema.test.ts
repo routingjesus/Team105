@@ -17,6 +17,18 @@ const validValues: WizardFormValues = {
   states: "UT",
 };
 
+const PASTE_COORDS = {
+  latitude: 38.38080520110032,
+  longitude: -97.4279212147894,
+};
+
+const blankAddress = { address: "", address2: "", city: "", state: "", zip: "" };
+
+function requiredPaths(result: ReturnType<typeof wizardSchema.safeParse>): string[] {
+  if (result.success) return [];
+  return result.error.issues.filter((issue) => issue.message === "Required").map((issue) => issue.path.join("."));
+}
+
 describe("isValidTimeWindow", () => {
   it("accepts a window wide enough for the service time", () => {
     expect(isValidTimeWindow(800, 1700, 10)).toBe(true);
@@ -70,6 +82,79 @@ describe("wizardSchema", () => {
       depots: [{ ...validValues.depots[0], address: "" }],
     });
     expect(result.success).toBe(false);
+    expect(requiredPaths(result)).toContain("depots.0.address");
+  });
+
+  it("accepts a coords-only depot", () => {
+    const result = wizardSchema.safeParse({
+      ...validValues,
+      depots: [{ ...validValues.depots[0], ...blankAddress, ...PASTE_COORDS }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a coords-only manual stop", () => {
+    const result = wizardSchema.safeParse({
+      ...validValues,
+      manualStops: [{ ...blankAddress, ...PASTE_COORDS }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a depot with both address and coordinates", () => {
+    const result = wizardSchema.safeParse({
+      ...validValues,
+      depots: [{ ...validValues.depots[0], ...PASTE_COORDS }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a depot with neither coordinates nor a complete address", () => {
+    const result = wizardSchema.safeParse({
+      ...validValues,
+      depots: [{ ...validValues.depots[0], ...blankAddress }],
+    });
+    expect(result.success).toBe(false);
+    expect(requiredPaths(result)).toEqual(
+      expect.arrayContaining(["depots.0.address", "depots.0.city", "depots.0.state", "depots.0.zip"]),
+    );
+  });
+
+  it("rejects a manual stop with neither coordinates nor a complete address", () => {
+    const result = wizardSchema.safeParse({
+      ...validValues,
+      manualStops: [{ ...blankAddress }],
+    });
+    expect(result.success).toBe(false);
+    expect(requiredPaths(result)).toEqual(
+      expect.arrayContaining([
+        "manualStops.0.address",
+        "manualStops.0.city",
+        "manualStops.0.state",
+        "manualStops.0.zip",
+      ]),
+    );
+  });
+
+  it("rejects a partial address without coordinates", () => {
+    const result = wizardSchema.safeParse({
+      ...validValues,
+      depots: [{ ...validValues.depots[0], city: "", zip: "" }],
+    });
+    expect(result.success).toBe(false);
+    expect(requiredPaths(result)).toEqual(expect.arrayContaining(["depots.0.city", "depots.0.zip"]));
+    expect(requiredPaths(result)).not.toContain("depots.0.address");
+  });
+
+  it("does not treat Null Island as coordinates", () => {
+    const result = wizardSchema.safeParse({
+      ...validValues,
+      depots: [{ ...validValues.depots[0], ...blankAddress, latitude: 0, longitude: 0 }],
+    });
+    expect(result.success).toBe(false);
+    expect(requiredPaths(result)).toEqual(
+      expect.arrayContaining(["depots.0.address", "depots.0.city", "depots.0.state", "depots.0.zip"]),
+    );
   });
 
   it("rejects non-ASCII depot text", () => {

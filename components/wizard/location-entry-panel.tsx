@@ -21,12 +21,13 @@ function fieldPath<T extends FieldPath<WizardFormValues>>(prefix: string, field:
 }
 
 export function LocationEntryPanel({ namePrefix }: LocationEntryPanelProps) {
-  const { setValue, watch } = useFormContext<WizardFormValues>();
+  const { setValue, watch, trigger } = useFormContext<WizardFormValues>();
   const [pasteValue, setPasteValue] = useState("");
   const [pasteError, setPasteError] = useState<string | null>(null);
 
   const values = watch(namePrefix) as LocationFields | undefined;
   const hasCoords = values ? hasValidCoordinates(values) : false;
+  const optionalSuffix = hasCoords ? " (optional)" : "";
 
   const applyPaste = () => {
     const parsed = parseGoogleMapsCoords(pasteValue);
@@ -38,12 +39,14 @@ export function LocationEntryPanel({ namePrefix }: LocationEntryPanelProps) {
     setValue(fieldPath(namePrefix, "longitude"), parsed.longitude, { shouldDirty: true });
     setPasteError(null);
     setPasteValue("");
+    void trigger(namePrefix);
   };
 
   const clearCoords = () => {
     setValue(fieldPath(namePrefix, "latitude"), undefined, { shouldDirty: true });
     setValue(fieldPath(namePrefix, "longitude"), undefined, { shouldDirty: true });
     setPasteError(null);
+    void trigger(namePrefix);
   };
 
   return (
@@ -51,7 +54,7 @@ export function LocationEntryPanel({ namePrefix }: LocationEntryPanelProps) {
       <div className="grid-2">
         <TextField
           name={fieldPath(namePrefix, "address")}
-          label="Street address"
+          label={`Street address${optionalSuffix}`}
           placeholder="123 Warehouse Way"
           autoComplete="off"
         />
@@ -60,9 +63,21 @@ export function LocationEntryPanel({ namePrefix }: LocationEntryPanelProps) {
           label="Address line 2 (optional)"
           placeholder="Suite 100"
         />
-        <TextField name={fieldPath(namePrefix, "city")} label="City" placeholder="Denver" />
-        <TextField name={fieldPath(namePrefix, "state")} label="State" placeholder="CO" />
-        <TextField name={fieldPath(namePrefix, "zip")} label="ZIP" placeholder="80202" />
+        <TextField
+          name={fieldPath(namePrefix, "city")}
+          label={`City${optionalSuffix}`}
+          placeholder="Denver"
+        />
+        <TextField
+          name={fieldPath(namePrefix, "state")}
+          label={`State${optionalSuffix}`}
+          placeholder="CO"
+        />
+        <TextField
+          name={fieldPath(namePrefix, "zip")}
+          label={`ZIP${optionalSuffix}`}
+          placeholder="80202"
+        />
       </div>
 
       <div className="field">

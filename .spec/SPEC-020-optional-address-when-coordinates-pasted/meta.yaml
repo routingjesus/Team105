@@ -1,5 +1,5 @@
 schema_version: "2026.04"
-status: ready
+status: done
 created: 2026-08-12
 updated: 2026-08-12
 
@@ -46,3 +46,30 @@ coordination:
 #     tags: []
 #     date: 2026-08-12
 ready_sha: "d461e1829112d6c965b8ddad9919de1c3a2de6d1"
+
+learnings:
+  - type: assumption_confirmed
+    summary: "Truck and stop generators already write empty Address/City/State/Zip cells and six-decimal lat/long; coords-only emission needed no generator changes."
+    context: "backend/generators/truck.py copies depot.address as-is; stop.py _manual_stops_frame already names a blank street Manual stop {index+1} and copies address fields through."
+    tags: [generators, empty-cells, coords-only]
+    date: 2026-08-12
+  - type: pattern_discovered
+    summary: "After locationFieldsSchema.superRefine, depotSchema must use Zod 4 .safeExtend(); .extend() throws on a refined object."
+    context: "lib/wizard-schema.ts locationFieldsSchema now carries the either-or superRefine shared by depotSchema and manualStopSchema."
+    tags: [zod4, safeExtend, wizard-schema]
+    date: 2026-08-12
+  - type: pattern_discovered
+    summary: "Pydantic ValidationError.from_exception_data with PydanticCustomError('required', 'Required') yields HTTP 422 loc paths FastAPI wraps as body.depots.0.address, which apiLocToFormPath can map."
+    context: "require_coords_or_address in backend/schemas/truck_config.py is shared by DepotSpec and ManualStop; a model-scoped ValueError would have loc ['body','depots',0] and would not map onto address fields."
+    tags: [pydantic, fastapi-422, api-contracts]
+    date: 2026-08-12
+  - type: constraint_found
+    summary: "After Use coordinates / Clear coordinates, LocationEntryPanel must trigger() the location prefix so RHF drops stale Required errors from the previous either-or state."
+    context: "components/wizard/location-entry-panel.tsx; @hookform/resolvers maps issue.path.join('.') and cross-field errors can stick until re-validation (resolvers #661/#672)."
+    tags: [react-hook-form, location-entry]
+    date: 2026-08-12
+
+
+completion:
+  date: 2026-08-12
+  pull_requests: []

@@ -221,3 +221,46 @@ def test_truck_file_emits_blank_depot_coords_when_omitted():
     cells = first_row.split("\t")
     assert cells[cols.index("Latitude")] == ""
     assert cells[cols.index("Longitude")] == ""
+
+
+def test_coords_only_manual_stop_generate_ok(sample_db: Path):
+    body = _stop_body(
+        selection={"mode": "state", "states": ["OH"]},
+        stop_count=1,
+        manual_stops=[
+            {
+                "address": "",
+                "city": "",
+                "state": "",
+                "zip": "",
+                "latitude": 38.38080520110032,
+                "longitude": -97.4279212147894,
+            }
+        ],
+    )
+    response = client.post("/api/stops/generate", json=body)
+    assert response.status_code == 200
+    content = base64.b64decode(response.json()["stop_file_base64"])
+    stops = pd.read_excel(io.BytesIO(content))
+    manual_rows = stops[stops["Name"] == "Manual stop 1"]
+    assert len(manual_rows) == 1
+    row = manual_rows.iloc[0]
+    assert pd.isna(row["Address"]) or str(row["Address"]).strip() == ""
+    assert pd.isna(row["City"]) or str(row["City"]).strip() == ""
+    assert str(row["Latitude"]).startswith("38.380805")
+    assert str(row["Longitude"]).startswith("-97.427921")
+
+
+def test_neither_manual_stop_returns_422_on_address_fields(sample_db: Path):
+    body = _stop_body(
+        selection={"mode": "state", "states": ["OH"]},
+        stop_count=1,
+        manual_stops=[{"address": "", "city": "", "state": "", "zip": ""}],
+    )
+    response = client.post("/api/stops/generate", json=body)
+    assert response.status_code == 422
+    locs = [tuple(item["loc"]) for item in response.json()["detail"]]
+    assert ("body", "manual_stops", 0, "address") in locs
+    assert ("body", "manual_stops", 0, "city") in locs
+    assert ("body", "manual_stops", 0, "state") in locs
+    assert ("body", "manual_stops", 0, "zip") in locs

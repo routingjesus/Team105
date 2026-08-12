@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasCompleteAddress,
   hasValidCoordinates,
   normalizeAddressKey,
   parseGoogleMapsCoords,
@@ -50,6 +51,20 @@ describe("hasValidCoordinates", () => {
         latitude: 0,
         longitude: 0,
       }),
+    ).toBe(false);
+  });
+});
+
+describe("hasCompleteAddress", () => {
+  it("requires all four fields after trim", () => {
+    expect(
+      hasCompleteAddress({ address: "1 Main", city: "Denver", state: "CO", zip: "80202" }),
+    ).toBe(true);
+  });
+
+  it("treats whitespace-only parts as incomplete", () => {
+    expect(
+      hasCompleteAddress({ address: "  ", city: "Denver", state: "CO", zip: "80202" }),
     ).toBe(false);
   });
 });

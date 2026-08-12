@@ -5,7 +5,10 @@ and SPEC-003 (wizard UI) mirror. Field semantics come from the legacy
 "Explode my Trucks.xlsxm" macro baseline documented in the PRD.
 """
 
-from pydantic import BaseModel, Field, field_validator
+from typing import Protocol, TypeVar
+
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic_core import InitErrorDetails, PydanticCustomError
 
 
 def _validate_ascii(value: str, field_name: str) -> str:
@@ -16,6 +19,57 @@ def _validate_ascii(value: str, field_name: str) -> str:
     if any(ch in value for ch in ("\t", "\r", "\n")):
         raise ValueError(f"{field_name} must not contain tabs or line breaks")
     return value
+
+
+class _LocationCompleteness(Protocol):
+    address: str
+    city: str
+    state: str
+    zip: str
+    latitude: float | None
+    longitude: float | None
+
+
+TLocation = TypeVar("TLocation", bound=_LocationCompleteness)
+
+
+def _has_valid_coordinates(latitude: float | None, longitude: float | None) -> bool:
+    """Match wizard `hasValidCoordinates`: both present, in bounds, not (0, 0)."""
+    if latitude is None or longitude is None:
+        return False
+    if latitude == 0 and longitude == 0:
+        return False
+    return -90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0
+
+
+def _has_complete_address(address: str, city: str, state: str, zip_code: str) -> bool:
+    return all(part.strip() for part in (address, city, state, zip_code))
+
+
+def require_coords_or_address(model: TLocation) -> TLocation:
+    """Either-or completeness: valid coords, a full address quartet, or both.
+
+    Raises field-level `Required` errors (not a model-scoped ValueError) so
+    FastAPI 422 `loc`s map onto `depots.N.address` / `manualStops.N.city`.
+    """
+    if _has_valid_coordinates(model.latitude, model.longitude):
+        return model
+    if _has_complete_address(model.address, model.city, model.state, model.zip):
+        return model
+    errors: list[InitErrorDetails] = []
+    for field_name in ("address", "city", "state", "zip"):
+        value = getattr(model, field_name)
+        if not str(value).strip():
+            errors.append(
+                {
+                    "type": PydanticCustomError("required", "Required"),
+                    "loc": (field_name,),
+                    "input": value,
+                }
+            )
+    if errors:
+        raise ValidationError.from_exception_data(type(model).__name__, errors)
+    return model
 
 
 class VolumeSpec(BaseModel):
@@ -35,14 +89,15 @@ class DepotSpec(BaseModel):
 
     `trucks` is the number of trucks (territories) exploded for this depot;
     territory numbering (T01, T02, ...) continues across depots.
-    Optional latitude/longitude are session paste values (SPEC-019); omitted
-    coords emit blank cells in the truck file.
+    Optional latitude/longitude are session paste values (SPEC-019). A depot
+    is complete with valid coords, a full address quartet, or both (SPEC-020);
+    omitted coords emit blank cells in the truck file.
     """
 
-    address: str = Field(min_length=1)
-    city: str = Field(min_length=1)
-    state: str = Field(min_length=1)
-    zip: str = Field(min_length=1)
+    address: str = Field(default="")
+    city: str = Field(default="")
+    state: str = Field(default="")
+    zip: str = Field(default="")
     trucks: int = Field(gt=0)
     latitude: float | None = Field(default=None, description="Optional WGS84 latitude")
     longitude: float | None = Field(default=None, description="Optional WGS84 longitude")
@@ -69,6 +124,10 @@ class DepotSpec(BaseModel):
         if not (-180.0 <= v <= 180.0):
             raise ValueError("longitude must be between -180 and 180")
         return v
+
+    @model_validator(mode="after")
+    def coords_or_address(self) -> "DepotSpec":
+        return require_coords_or_address(self)
 
 
 class TruckConfig(BaseModel):

@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from backend.schemas.truck_config import DepotSummary, VolumeSpec, _validate_ascii
+from backend.schemas.truck_config import DepotSummary, VolumeSpec, _validate_ascii, require_coords_or_address
 
 # Per the owner-supplied golden stop-file templates: Frequency represents
 # service occurrences per week (1 = 1x/wk; .5 = 2x/mo; .25 = 1x/mo; sub-.25
@@ -185,11 +185,11 @@ class SelectionConfig(BaseModel):
 class ManualStop(BaseModel):
     """Session-only stop supplied by the wizard (not persisted to location_db)."""
 
-    address: str = Field(min_length=1)
+    address: str = Field(default="")
     address2: str = Field(default="")
-    city: str = Field(min_length=1)
-    state: str = Field(min_length=1)
-    zip: str = Field(min_length=1)
+    city: str = Field(default="")
+    state: str = Field(default="")
+    zip: str = Field(default="")
     latitude: float | None = None
     longitude: float | None = None
 
@@ -215,6 +215,10 @@ class ManualStop(BaseModel):
         if not (-180.0 <= v <= 180.0):
             raise ValueError("longitude must be between -180 and 180")
         return v
+
+    @model_validator(mode="after")
+    def coords_or_address(self) -> "ManualStop":
+        return require_coords_or_address(self)
 
 
 class VolumeAnswer(BaseModel):
